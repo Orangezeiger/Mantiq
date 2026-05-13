@@ -13,9 +13,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build
-        env:
-          HOME: /root
         run: |
+          export HOME=/root
           cd mantiq
           chmod +x mvnw
           ./mvnw package -DskipTests -q
