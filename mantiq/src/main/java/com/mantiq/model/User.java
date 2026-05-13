@@ -56,6 +56,9 @@ public class User {
     @Column(name = "last_reward_claimed_at")
     private LocalDateTime lastRewardClaimedAt;
 
+    @Column(nullable = false)
+    private Boolean active = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -108,6 +111,9 @@ public class User {
 
     public LocalDateTime getLastRewardClaimedAt() { return lastRewardClaimedAt; }
     public void setLastRewardClaimedAt(LocalDateTime v) { this.lastRewardClaimedAt = v; }
+
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

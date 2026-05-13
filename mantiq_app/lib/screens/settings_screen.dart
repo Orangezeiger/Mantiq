@@ -19,10 +19,13 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _profile;
-  bool _loading = true;
-  String _appVersion        = '';
-  String _serverVersion     = '';
-  bool   _notificationsOn   = true;
+  bool   _loading          = true;
+  String _appVersion       = '';
+  String _serverVersion    = '';
+  bool   _notificationsOn  = true;
+  double _dailyGoalHours   = 1.0;
+
+  static const _goalOptions = [0.5, 1.0, 1.5, 2.0, 3.0];
 
   @override
   void initState() {
@@ -36,6 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _notificationsOn = prefs.getBool('streak_notifications') ?? true;
+      _dailyGoalHours  = prefs.getDouble('daily_goal_hours') ?? 1.0;
     });
   }
 
@@ -48,6 +52,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else {
       await NotificationService.cancelStreakReminder();
     }
+  }
+
+  Future<void> _setDailyGoal(double hours) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('daily_goal_hours', hours);
+    setState(() => _dailyGoalHours = hours);
   }
 
   Future<void> _loadVersions() async {
@@ -125,6 +135,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _editFullName() {
+    final firstCtrl = TextEditingController(text: _profile?['firstName'] ?? '');
+    final lastCtrl  = TextEditingController(text: _profile?['lastName']  ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Vor- & Nachname', style: TextStyle(color: AppColors.text)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: firstCtrl,
+            autofocus: true,
+            style: const TextStyle(color: AppColors.text),
+            decoration: const InputDecoration(hintText: 'Vorname'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: lastCtrl,
+            style: const TextStyle(color: AppColors.text),
+            decoration: const InputDecoration(hintText: 'Nachname'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx),
+              child: const Text('Abbrechen', style: TextStyle(color: AppColors.textMuted))),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ApiService.updateFullName(
+                  widget.userId, firstCtrl.text.trim(), lastCtrl.text.trim());
+              if (!mounted) return;
+              _load();
+            },
+            child: const Text('Speichern', style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmResetProgress() {
     showDialog(
       context: context,
@@ -150,6 +200,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
             },
             child: const Text('Zurücksetzen', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Konto löschen?', style: TextStyle(color: AppColors.error)),
+        content: const Text(
+            'Dein Konto wird deaktiviert und du wirst abgemeldet. Diese Aktion kann nicht rückgängig gemacht werden.',
+            style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx),
+              child: const Text('Abbrechen', style: TextStyle(color: AppColors.textMuted))),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _confirmDeleteAccountFinal();
+            },
+            child: const Text('Weiter', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteAccountFinal() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Wirklich löschen?', style: TextStyle(color: AppColors.error)),
+        content: const Text(
+            'Bist du sicher? Dein Konto wird dauerhaft deaktiviert.',
+            style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx),
+              child: const Text('Abbrechen', style: TextStyle(color: AppColors.textMuted))),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ApiService.deleteAccount(widget.userId);
+              if (mounted) await _logout();
+            },
+            child: const Text('Konto löschen', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -198,6 +297,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final firstName = _profile?['firstName'] as String? ?? '';
+    final lastName  = _profile?['lastName']  as String? ?? '';
+    final fullName  = [firstName, lastName].where((s) => s.isNotEmpty).join(' ');
+
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
       body: _loading
@@ -227,6 +330,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.badge_outlined, label: 'Anzeigename ändern',
                     onTap: _editName),
                   _SettingsItem(
+                    icon: Icons.person_outlined,
+                    label: fullName.isNotEmpty
+                        ? 'Name: $fullName'
+                        : 'Vor- & Nachname eintragen',
+                    onTap: _editFullName),
+                  _SettingsItem(
                     icon: Icons.workspace_premium_outlined,
                     label: 'Mantiq Pro',
                     trailing: Container(
@@ -238,6 +347,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: AppColors.warning, fontSize: 11, fontWeight: FontWeight.w700)),
                     ),
                     onTap: _showSubscriptionInfo),
+                  const SizedBox(height: 16),
+
+                  // Tägliches Lernziel
+                  _SectionLabel('Tägliches Lernziel'),
+                  _DailyGoalPicker(
+                    options:  _goalOptions,
+                    selected: _dailyGoalHours,
+                    onSelect: _setDailyGoal,
+                  ),
                   const SizedBox(height: 16),
 
                   // Benachrichtigungen
@@ -266,12 +384,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: 'Abmelden',
                     textColor: AppColors.error,
                     onTap: _logout),
+                  _SettingsItem(
+                    icon: Icons.delete_forever_outlined,
+                    label: 'Konto löschen',
+                    textColor: AppColors.error,
+                    onTap: _confirmDeleteAccount),
                   const SizedBox(height: 32),
 
-                  // Version (klein, versteckt am Ende)
+                  // Version
                   Center(
                     child: Column(children: [
-                      Text('App ${'$_appVersion'}',
+                      Text('App $_appVersion',
                           style: const TextStyle(
                               color: AppColors.textMuted, fontSize: 11)),
                       const SizedBox(height: 2),
@@ -284,6 +407,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _DailyGoalPicker extends StatelessWidget {
+  final List<double>      options;
+  final double            selected;
+  final ValueChanged<double> onSelect;
+
+  const _DailyGoalPicker({
+    required this.options, required this.selected, required this.onSelect,
+  });
+
+  String _label(double h) {
+    if (h == 0.5) return '30 Min';
+    final whole = h.toInt();
+    final half  = h - whole > 0.1;
+    if (half) return '${whole}h 30';
+    return '${whole}h';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.timer_outlined, color: AppColors.textMuted, size: 20),
+          const SizedBox(width: 12),
+          Text(
+            'Ziel: ${_label(selected)} täglich',
+            style: const TextStyle(color: AppColors.text, fontSize: 15),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Row(
+          children: options.map((h) {
+            final active = (h - selected).abs() < 0.05;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onSelect(h),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? AppColors.primary.withOpacity(0.18)
+                        : AppColors.surface2,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: active ? AppColors.primary : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _label(h),
+                      style: TextStyle(
+                        color: active ? AppColors.primary : AppColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ]),
     );
   }
 }

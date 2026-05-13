@@ -78,6 +78,9 @@ public class AuthController {
         }
 
         User nutzer = nutzerOpt.get();
+        if (Boolean.FALSE.equals(nutzer.getActive())) {
+            return ResponseEntity.status(401).body(Map.of("fehler", "Konto wurde deaktiviert"));
+        }
         Map<String, Object> resp = new HashMap<>();
         resp.put("userId",      nutzer.getId());
         resp.put("email",       nutzer.getEmail());

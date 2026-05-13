@@ -54,6 +54,21 @@ class ApiService {
     return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
   }
 
+  static Future<Map<String, dynamic>> updateFullName(
+      int userId, String firstName, String lastName) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/users/$userId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'firstName': firstName, 'lastName': lastName}),
+    );
+    return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
+  }
+
+  static Future<bool> deleteAccount(int userId) async {
+    final res = await http.delete(Uri.parse('$baseUrl/api/users/$userId'));
+    return res.statusCode == 200;
+  }
+
   static Future<bool> resetProgress(int userId) async {
     final res = await http.delete(Uri.parse('$baseUrl/api/users/$userId/progress'));
     return res.statusCode == 200;

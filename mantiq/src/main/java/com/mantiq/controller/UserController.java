@@ -42,7 +42,10 @@ public class UserController {
         User u = userRepository.findById(id).orElse(null);
         if (u == null) return ResponseEntity.notFound().build();
 
-        String name = body.get("displayName");
+        String name      = body.get("displayName");
+        String firstName = body.get("firstName");
+        String lastName  = body.get("lastName");
+
         if (name != null) {
             if (u.getDisplayNameChangedAt() != null) {
                 long daysSince = ChronoUnit.DAYS.between(u.getDisplayNameChangedAt(), LocalDateTime.now());
@@ -57,6 +60,9 @@ public class UserController {
             u.setDisplayName(name.isBlank() ? null : name.trim());
             u.setDisplayNameChangedAt(LocalDateTime.now());
         }
+        if (firstName != null) u.setFirstName(firstName.isBlank() ? null : firstName.trim());
+        if (lastName  != null) u.setLastName(lastName.isBlank()   ? null : lastName.trim());
+
         userRepository.save(u);
         return ResponseEntity.ok(nutzerZuMap(u));
     }
@@ -74,6 +80,16 @@ public class UserController {
             return m;
         }).toList();
         return ResponseEntity.ok(result);
+    }
+
+    // Konto deaktivieren (Soft-Delete): DELETE /api/users/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> kontoDeaktivieren(@PathVariable Integer id) {
+        User u = userRepository.findById(id).orElse(null);
+        if (u == null) return ResponseEntity.notFound().build();
+        u.setActive(false);
+        userRepository.save(u);
+        return ResponseEntity.ok(Map.of("nachricht", "Konto deaktiviert"));
     }
 
     // Fortschritt zuruecksetzen: DELETE /api/users/{id}/progress
@@ -100,6 +116,7 @@ public class UserController {
         m.put("email",               u.getEmail());
         m.put("displayName",         u.getDisplayName() != null ? u.getDisplayName() : "");
         m.put("firstName",           u.getFirstName() != null ? u.getFirstName() : "");
+        m.put("lastName",            u.getLastName() != null ? u.getLastName() : "");
         m.put("xp",                  u.getXp());
         m.put("coins",               u.getCoins());
         m.put("streakDays",          u.getStreakDays());
