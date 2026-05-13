@@ -43,23 +43,22 @@ public class FriendController {
             Map<String, Object> m = new HashMap<>();
             m.put("requestId", f.getId());
             m.put("userId",    f.getUser().getId());
-            m.put("email",     f.getUser().getEmail());
             m.put("name",      f.getUser().getDisplayName() != null
-                               ? f.getUser().getDisplayName() : f.getUser().getEmail());
+                               ? f.getUser().getDisplayName() : "Nutzer");
             return m;
         }).toList();
         return ResponseEntity.ok(result);
     }
 
     // Freundschaftsanfrage senden: POST /api/friends/request
-    // Body: { "fromUserId": X, "toEmail": "..." }
+    // Body: { "fromUserId": X, "toUserId": Y }
     @PostMapping("/request")
     public ResponseEntity<?> anfrageSenden(@RequestBody Map<String, Object> body) {
-        Integer fromId  = (Integer) body.get("fromUserId");
-        String  toEmail = (String)  body.get("toEmail");
+        Integer fromId = (Integer) body.get("fromUserId");
+        Integer toId   = (Integer) body.get("toUserId");
 
         User sender    = userRepository.findById(fromId).orElse(null);
-        User empfaenger = userRepository.findByEmail(toEmail).orElse(null);
+        User empfaenger = toId != null ? userRepository.findById(toId).orElse(null) : null;
 
         if (sender == null || empfaenger == null)
             return ResponseEntity.badRequest().body(Map.of("fehler", "Nutzer nicht gefunden"));
@@ -99,8 +98,7 @@ public class FriendController {
         Map<String, Object> m = new HashMap<>();
         m.put("friendshipId", friendshipId);
         m.put("userId",       u.getId());
-        m.put("email",        u.getEmail());
-        m.put("name",         u.getDisplayName() != null ? u.getDisplayName() : u.getEmail());
+        m.put("name",         u.getDisplayName() != null ? u.getDisplayName() : "Nutzer");
         m.put("xp",           u.getXp());
         m.put("streakDays",   u.getStreakDays());
         return m;

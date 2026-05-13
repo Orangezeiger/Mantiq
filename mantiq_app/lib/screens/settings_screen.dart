@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 
@@ -18,14 +20,34 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _profile;
   bool _loading = true;
-  String _appVersion    = '';
-  String _serverVersion = '';
+  String _appVersion        = '';
+  String _serverVersion     = '';
+  bool   _notificationsOn   = true;
 
   @override
   void initState() {
     super.initState();
     _load();
     _loadVersions();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsOn = prefs.getBool('streak_notifications') ?? true;
+    });
+  }
+
+  Future<void> _toggleNotifications(bool val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('streak_notifications', val);
+    setState(() => _notificationsOn = val);
+    if (val) {
+      await NotificationService.scheduleStreakReminder();
+    } else {
+      await NotificationService.cancelStreakReminder();
+    }
   }
 
   Future<void> _loadVersions() async {
@@ -218,6 +240,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: _showSubscriptionInfo),
                   const SizedBox(height: 16),
 
+                  // Benachrichtigungen
+                  _SectionLabel('Benachrichtigungen'),
+                  _SettingsSwitchItem(
+                    icon: Icons.notifications_outlined,
+                    label: 'Streak-Erinnerung (20:00 Uhr)',
+                    value: _notificationsOn,
+                    onChanged: _toggleNotifications,
+                  ),
+                  const SizedBox(height: 16),
+
                   // Fortschritt
                   _SectionLabel('Lernfortschritt'),
                   _SettingsItem(
@@ -350,6 +382,42 @@ class _SectionLabel extends StatelessWidget {
           style: const TextStyle(
               color: AppColors.textMuted, fontSize: 12,
               fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+    );
+  }
+}
+
+class _SettingsSwitchItem extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final bool     value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingsSwitchItem({
+    required this.icon, required this.label,
+    required this.value, required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(children: [
+        Icon(icon, color: AppColors.textMuted, size: 20),
+        const SizedBox(width: 12),
+        Expanded(child: Text(label,
+            style: const TextStyle(color: AppColors.text, fontSize: 15))),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: AppColors.primary,
+        ),
+      ]),
     );
   }
 }

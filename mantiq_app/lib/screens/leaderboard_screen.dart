@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
@@ -15,16 +16,28 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
   late TabController _tabs;
   Map<String, dynamic>? _data;
   bool _loading = true;
+  bool _claiming = false;
+
+  static const _ligaColors = [
+    Color(0xFFCD7F32), // Bronze
+    Color(0xFFB0C4DE), // Silber
+    Color(0xFFFFD700), // Gold
+    Color(0xFF4ABEF0), // Platin
+    Color(0xFF9B59B6), // Diamant
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _load();
   }
 
   @override
-  void dispose() { _tabs.dispose(); super.dispose(); }
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -32,8 +45,34 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     setState(() { _data = d; _loading = false; });
   }
 
+  Future<void> _claimReward() async {
+    setState(() => _claiming = true);
+    final res = await ApiService.claimLeagueReward(widget.userId);
+    setState(() => _claiming = false);
+    if (!mounted) return;
+    if (res['ok'] == true) {
+      final coins = res['data']['coins'] ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$coins Münzen erhalten! 🎉'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+      ));
+      _load();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(res['data']['fehler'] ?? 'Fehler'),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final liga = _data?['liga'] as Map<String, dynamic>?;
+    final ligaIndex = liga?['index'] as int? ?? 0;
+    final ligaColor = _ligaColors[ligaIndex.clamp(0, 4)];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rangliste'),
@@ -42,7 +81,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           indicatorColor: AppColors.primary,
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textMuted,
-          tabs: const [Tab(text: 'Global'), Tab(text: 'Freunde')],
+          tabs: const [
+            Tab(text: 'Liga'),
+            Tab(text: 'Global'),
+            Tab(text: 'Freunde'),
+          ],
         ),
       ),
       body: _loading
@@ -50,14 +93,96 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           : TabBarView(
               controller: _tabs,
               children: [
-                _buildList(_data?['global'] ?? [], _data?['meinRang'] ?? 0),
-                _buildList(_data?['freunde'] ?? [], null),
+                _buildLigaTab(ligaColor),
+                _buildRankedList(_data?['global'] ?? [], _data?['meinRang'] as int?),
+                _buildRankedList(_data?['freunde'] ?? [], null),
               ],
             ),
     );
   }
 
-  Widget _buildList(List<dynamic> users, int? meinRang) {
+  Widget _buildLigaTab(Color ligaColor) {
+    final liga = _data?['liga'] as Map<String, dynamic>?;
+    if (liga == null) {
+      return const Center(child: Text('Keine Daten', style: TextStyle(color: AppColors.textMuted)));
+    }
+
+    final members      = liga['members'] as List<dynamic>? ?? [];
+    final myRank       = liga['myRank'] as int? ?? 0;
+    final kannBelohnen = liga['kannBelohnen'] as bool? ?? false;
+    final belohnung    = liga['belohnungCoins'] as int? ?? 0;
+    final ligaName     = liga['name'] as String? ?? '';
+    final ligaEmoji    = liga['emoji'] as String? ?? '';
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // League badge header
+          _LigaBadge(
+            name: ligaName,
+            emoji: ligaEmoji,
+            color: ligaColor,
+            myRank: myRank,
+          ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2),
+
+          const SizedBox(height: 12),
+
+          // Reward claim button
+          if (myRank >= 1 && myRank <= 3) ...[
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: kannBelohnen
+                  ? _RewardBanner(
+                      key: const ValueKey('claim'),
+                      rank: myRank,
+                      coins: belohnung,
+                      claiming: _claiming,
+                      onClaim: _claimReward,
+                    )
+                  : Container(
+                      key: const ValueKey('claimed'),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                        const SizedBox(width: 10),
+                        Text('Belohnung diese Woche bereits abgeholt',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                      ]),
+                    ),
+            ).animate().fadeIn(delay: 200.ms),
+            const SizedBox(height: 12),
+          ],
+
+          // Members list
+          ...List.generate(members.length, (i) {
+            final u      = members[i];
+            final isMe   = u['isMe'] == true || u['userId'] == widget.userId;
+            final pos    = i + 1;
+            return _LeaderRow(
+              pos:     pos,
+              name:    u['name'] ?? '',
+              xp:      u['xp'] as int? ?? 0,
+              streak:  u['streakDays'] as int? ?? 0,
+              isMe:    isMe,
+              accentColor: ligaColor,
+            ).animate()
+              .fadeIn(delay: Duration(milliseconds: 80 + i * 50))
+              .slideX(begin: 0.05);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRankedList(List<dynamic> users, int? meinRang) {
     if (users.isEmpty) {
       return const Center(
         child: Text('Noch keine Einträge', style: TextStyle(color: AppColors.textMuted)));
@@ -71,7 +196,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           if (meinRang != null && meinRang > 0) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
@@ -79,59 +204,243 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
               ),
               child: Text('Dein Rang: #$meinRang',
                   style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
-            ),
+            ).animate().fadeIn(duration: 350.ms),
           ],
           ...List.generate(users.length, (i) {
-            final u   = users[i];
-            final pos = i + 1;
-            final isMine = u['userId'] == widget.userId;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isMine
-                    ? AppColors.primary.withOpacity(0.10)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isMine ? AppColors.primary.withOpacity(0.4) : AppColors.border),
-              ),
-              child: Row(children: [
-                // Platz
-                SizedBox(
-                  width: 36,
-                  child: Text(
-                    pos == 1 ? '🥇' : pos == 2 ? '🥈' : pos == 3 ? '🥉' : '#$pos',
-                    style: TextStyle(
-                      fontSize: pos <= 3 ? 20 : 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textMuted,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(u['name'] ?? '',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isMine ? AppColors.primary : AppColors.text,
-                    )),
-                  const SizedBox(height: 2),
-                  Row(children: [
-                    const Icon(Icons.local_fire_department, color: AppColors.error, size: 13),
-                    Text(' ${u['streakDays']} Tage',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                  ]),
-                ])),
-                Text('${u['xp']} XP',
-                  style: const TextStyle(
-                    color: AppColors.warning, fontWeight: FontWeight.w800, fontSize: 15)),
-              ]),
-            );
+            final u    = users[i];
+            final isMe = u['isMe'] == true || u['userId'] == widget.userId;
+            return _LeaderRow(
+              pos:    i + 1,
+              name:   u['name'] ?? '',
+              xp:     u['xp'] as int? ?? 0,
+              streak: u['streakDays'] as int? ?? 0,
+              isMe:   isMe,
+            ).animate()
+              .fadeIn(delay: Duration(milliseconds: 60 + i * 40))
+              .slideX(begin: 0.05);
           }),
         ],
       ),
     );
+  }
+}
+
+// ── Liga Badge ────────────────────────────────────────
+class _LigaBadge extends StatelessWidget {
+  final String name;
+  final String emoji;
+  final Color  color;
+  final int    myRank;
+
+  const _LigaBadge({
+    required this.name, required this.emoji,
+    required this.color, required this.myRank,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.25), color.withOpacity(0.08)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+      ),
+      child: Row(children: [
+        Text(emoji, style: const TextStyle(fontSize: 44)),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name,
+            style: TextStyle(
+              fontSize: 22, fontWeight: FontWeight.w900,
+              color: color, letterSpacing: 0.5,
+            )),
+          const SizedBox(height: 4),
+          Text('Liga · Platz $myRank von 12',
+            style: TextStyle(color: color.withOpacity(0.75), fontSize: 13)),
+        ])),
+      ]),
+    );
+  }
+}
+
+// ── Reward Banner ─────────────────────────────────────
+class _RewardBanner extends StatelessWidget {
+  final int          rank;
+  final int          coins;
+  final bool         claiming;
+  final VoidCallback onClaim;
+
+  const _RewardBanner({
+    super.key,
+    required this.rank, required this.coins,
+    required this.claiming, required this.onClaim,
+  });
+
+  static const _medals = ['🥇', '🥈', '🥉'];
+
+  @override
+  Widget build(BuildContext context) {
+    final medal = _medals[(rank - 1).clamp(0, 2)];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.warning.withOpacity(0.18),
+            AppColors.warning.withOpacity(0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warning.withOpacity(0.5)),
+      ),
+      child: Row(children: [
+        Text(medal, style: const TextStyle(fontSize: 28)),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Wochenbelohnung verfügbar!',
+              style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.text, fontSize: 14)),
+          Text('Platz $rank → $coins Münzen',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        ])),
+        const SizedBox(width: 8),
+        SizedBox(
+          height: 36,
+          child: ElevatedButton(
+            onPressed: claiming ? null : onClaim,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warning,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: claiming
+                ? const SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                : const Text('Abholen', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Leader Row ────────────────────────────────────────
+class _LeaderRow extends StatelessWidget {
+  final int    pos;
+  final String name;
+  final int    xp;
+  final int    streak;
+  final bool   isMe;
+  final Color? accentColor;
+
+  const _LeaderRow({
+    required this.pos, required this.name, required this.xp,
+    required this.streak, required this.isMe, this.accentColor,
+  });
+
+  static const _podium = ['🥇', '🥈', '🥉'];
+
+  @override
+  Widget build(BuildContext context) {
+    final highlight = isMe ? (accentColor ?? AppColors.primary) : null;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: highlight != null
+            ? highlight.withOpacity(0.10)
+            : AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: highlight != null
+              ? highlight.withOpacity(0.4)
+              : AppColors.border,
+          width: isMe ? 1.5 : 1,
+        ),
+      ),
+      child: Row(children: [
+        SizedBox(
+          width: 36,
+          child: pos <= 3
+              ? Text(_podium[pos - 1],
+                  style: const TextStyle(fontSize: 20),
+                  textAlign: TextAlign.center)
+              : Text('#$pos',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                  textAlign: TextAlign.center),
+        ),
+        const SizedBox(width: 10),
+        // Avatar circle
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: (highlight ?? AppColors.primary).withOpacity(0.15),
+          ),
+          child: Center(child: Text(
+            name.isNotEmpty ? name[0].toUpperCase() : '?',
+            style: TextStyle(
+              color: highlight ?? AppColors.primary,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          )),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Flexible(child: Text(name,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isMe ? (highlight ?? AppColors.primary) : AppColors.text,
+                fontSize: 14,
+              ),
+              overflow: TextOverflow.ellipsis,
+            )),
+            if (isMe) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: (highlight ?? AppColors.primary).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('Du',
+                  style: TextStyle(
+                    color: highlight ?? AppColors.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  )),
+              ),
+            ],
+          ]),
+          const SizedBox(height: 2),
+          Row(children: [
+            const Icon(Icons.local_fire_department, color: AppColors.error, size: 12),
+            Text(' $streak', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+          ]),
+        ])),
+        Text('${_formatXp(xp)} XP',
+          style: TextStyle(
+            color: isMe ? (highlight ?? AppColors.warning) : AppColors.warning,
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+          )),
+      ]),
+    );
+  }
+
+  String _formatXp(int xp) {
+    if (xp >= 1000) return '${(xp / 1000).toStringAsFixed(1)}k';
+    return xp.toString();
   }
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
@@ -132,19 +133,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('🌱', style: TextStyle(fontSize: 56)),
+          const Text('🌱', style: TextStyle(fontSize: 56))
+              .animate().scale(begin: const Offset(0.5, 0.5), duration: 500.ms, curve: Curves.elasticOut),
           const SizedBox(height: 16),
           const Text('Noch keine Lernbäume',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.text)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.text))
+              .animate().fadeIn(delay: 200.ms),
           const SizedBox(height: 8),
           const Text('Erstelle deinen ersten Baum',
-            style: TextStyle(color: AppColors.textMuted)),
+            style: TextStyle(color: AppColors.textMuted))
+              .animate().fadeIn(delay: 300.ms),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _openNewTreeModal,
             icon: const Icon(Icons.add),
             label: const Text('Jetzt starten'),
-          ),
+          ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3),
         ],
       ),
     );
@@ -247,7 +251,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
           onEdit:  () => _editTree(tree),
           onShare: () => _shareTree(tree),
-        );
+        ).animate()
+          .fadeIn(delay: Duration(milliseconds: 60 * (i - 1)), duration: 300.ms)
+          .slideY(begin: 0.06, curve: Curves.easeOut);
       },
     );
   }

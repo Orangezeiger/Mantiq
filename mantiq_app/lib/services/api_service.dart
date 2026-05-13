@@ -178,11 +178,11 @@ class ApiService {
     return [];
   }
 
-  static Future<Map<String, dynamic>> sendFriendRequest(int fromUserId, String toEmail) async {
+  static Future<Map<String, dynamic>> sendFriendRequest(int fromUserId, int toUserId) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/friends/request'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'fromUserId': fromUserId, 'toEmail': toEmail}),
+      body: jsonEncode({'fromUserId': fromUserId, 'toUserId': toUserId}),
     );
     return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
   }
@@ -203,6 +203,15 @@ class ApiService {
     final res = await http.get(Uri.parse('$baseUrl/api/leaderboard?userId=$userId'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     return null;
+  }
+
+  static Future<Map<String, dynamic>> claimLeagueReward(int userId) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/leaderboard/claim-reward'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'userId': userId}),
+    );
+    return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
   }
 
   // ── Shop ──────────────────────────────────────────

@@ -40,9 +40,9 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   void _showFriendProfile(dynamic f) {
-    final name   = f['name'] as String? ?? f['email'] as String;
-    final xp     = f['xp'] as int? ?? 0;
-    final streak = f['streakDays'] as int? ?? 0;
+    final name         = f['name'] as String? ?? 'Nutzer';
+    final xp           = f['xp'] as int? ?? 0;
+    final streak       = f['streakDays'] as int? ?? 0;
     final friendshipId = f['friendshipId'] as int;
 
     showModalBottomSheet(
@@ -86,8 +86,11 @@ class _FriendsScreenState extends State<FriendsScreen>
               child: OutlinedButton.icon(
                 onPressed: () async {
                   Navigator.pop(ctx);
-                  await ApiService.removeFriend(friendshipId);
-                  _load();
+                  final confirmed = await _confirmRemove(name);
+                  if (confirmed) {
+                    await ApiService.removeFriend(friendshipId);
+                    _load();
+                  }
                 },
                 icon: const Icon(Icons.person_remove_outlined, color: AppColors.error),
                 label: const Text('Freund entfernen',
@@ -100,6 +103,30 @@ class _FriendsScreenState extends State<FriendsScreen>
         ),
       ),
     );
+  }
+
+  Future<bool> _confirmRemove(String name) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Freund entfernen',
+            style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w700)),
+        content: Text('$name wirklich als Freund entfernen?',
+            style: const TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Entfernen', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   Widget _statBadge(IconData icon, String label, Color color) {
@@ -186,15 +213,19 @@ class _FriendsScreenState extends State<FriendsScreen>
         padding: const EdgeInsets.all(16),
         itemCount: _friends.length,
         itemBuilder: (_, i) {
-          final f = _friends[i];
+          final f    = _friends[i];
+          final name = f['name'] as String? ?? 'Nutzer';
           return _FriendCard(
-            name:     f['name'] ?? f['email'],
+            name:     name,
             xp:       f['xp'] ?? 0,
             streak:   f['streakDays'] ?? 0,
             onTap:    () => _showFriendProfile(f),
             onRemove: () async {
-              await ApiService.removeFriend(f['friendshipId']);
-              _load();
+              final confirmed = await _confirmRemove(name);
+              if (confirmed) {
+                await ApiService.removeFriend(f['friendshipId'] as int);
+                _load();
+              }
             },
           );
         },
@@ -222,9 +253,10 @@ class _FriendsScreenState extends State<FriendsScreen>
           ),
           child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(r['name'] ?? r['email'],
+              Text(r['name'] as String? ?? 'Nutzer',
                   style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.text)),
-              Text(r['email'], style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              const Text('Freundschaftsanfrage',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
             ])),
             TextButton(
               onPressed: () async {
@@ -286,7 +318,7 @@ class _AddFriendSheetState extends State<_AddFriendSheet> {
   }
 
   Future<void> _sendRequest(dynamic user) async {
-    final res = await ApiService.sendFriendRequest(widget.userId, user['email'] as String);
+    final res = await ApiService.sendFriendRequest(widget.userId, user['userId'] as int);
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
@@ -347,7 +379,7 @@ class _AddFriendSheetState extends State<_AddFriendSheet> {
             itemCount: _results.length,
             itemBuilder: (_, i) {
               final u = _results[i];
-              final name = (u['name'] as String?) ?? (u['email'] as String);
+              final name = u['name'] as String? ?? 'Nutzer';
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 leading: CircleAvatar(
@@ -358,8 +390,6 @@ class _AddFriendSheetState extends State<_AddFriendSheet> {
                 ),
                 title: Text(name,
                   style: const TextStyle(color: AppColors.text, fontWeight: FontWeight.w600)),
-                subtitle: Text(u['email'] as String,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 trailing: IconButton(
                   icon: const Icon(Icons.person_add_rounded, color: AppColors.primary),
                   onPressed: () => _sendRequest(u),

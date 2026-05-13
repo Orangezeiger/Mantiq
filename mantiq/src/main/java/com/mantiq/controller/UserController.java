@@ -69,9 +69,8 @@ public class UserController {
         List<Map<String, Object>> result = treffer.stream().map(u -> {
             Map<String, Object> m = new HashMap<>();
             m.put("userId",      u.getId());
-            m.put("displayName", u.getDisplayName() != null ? u.getDisplayName() : "");
-            m.put("email",       u.getEmail());
-            m.put("name",        u.getDisplayName() != null ? u.getDisplayName() : u.getEmail());
+            m.put("displayName", u.getDisplayName() != null ? u.getDisplayName() : "Nutzer");
+            m.put("name",        u.getDisplayName() != null ? u.getDisplayName() : "Nutzer");
             return m;
         }).toList();
         return ResponseEntity.ok(result);

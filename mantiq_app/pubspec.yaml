@@ -17,6 +17,8 @@ dependencies:
   package_info_plus: ^8.0.0     # App-Version aus pubspec lesen
   share_plus: ^9.0.0            # Nativer Share-Sheet (Datei/Text teilen)
   path_provider: ^2.1.0         # Temp-Verzeichnis fuer .mantiq-Datei
+  flutter_local_notifications: ^18.0.0  # Streak-Erinnerungen
+  timezone: ^0.9.0                      # Zeitzonen fuer geplante Benachrichtigungen
 
 dev_dependencies:
   flutter_test:

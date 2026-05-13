@@ -23,6 +23,11 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("SELECT u FROM User u ORDER BY u.xp DESC")
     List<User> findTopByXp(org.springframework.data.domain.Pageable pageable);
 
+    // Liga-Mitglieder (XP-Bereich), maxXp=-1 bedeutet kein oberes Limit
+    @Query("SELECT u FROM User u WHERE u.xp >= :minXp AND (:maxXp = -1 OR u.xp < :maxXp) ORDER BY u.xp DESC")
+    List<User> findLeagueMembers(@Param("minXp") int minXp, @Param("maxXp") int maxXp,
+                                 org.springframework.data.domain.Pageable pageable);
+
     // Freunde eines Nutzers nach XP sortiert (beide Richtungen der Freundschaft)
     @Query("SELECT CASE WHEN f.user.id = :userId THEN f.friend ELSE f.user END " +
            "FROM Friendship f WHERE (f.user.id = :userId OR f.friend.id = :userId) " +
