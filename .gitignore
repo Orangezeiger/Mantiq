@@ -1,6 +1,6 @@
 # Java / Maven
 mantiq/target/
-mantiq/.mvn/
+mantiq/.mvn/wrapper/maven-wrapper.jar
 *.class
 *.jar
 *.war
