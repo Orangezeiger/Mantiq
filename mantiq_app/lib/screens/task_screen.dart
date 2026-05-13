@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
+import '../services/sound_service.dart';
 import '../theme/app_theme.dart';
 
 class TaskScreen extends StatefulWidget {
@@ -84,8 +85,9 @@ class _TaskScreenState extends State<TaskScreen> {
   Future<void> _showCompletion() async {
     await ApiService.completeStep(widget.stepId, widget.userId);
     if (!mounted) return;
-    setState(() => _loading = false); // zeigt Completion-Screen
-    _index = _tasks.length; // Signal fuer Completion
+    SoundService.playComplete();
+    setState(() => _loading = false);
+    _index = _tasks.length;
   }
 
   double get _progress => _tasks.isEmpty ? 0 : _index / _tasks.length;
@@ -282,6 +284,7 @@ class _TaskScreenState extends State<TaskScreen> {
             final richtig = label == richtigText;
             if (richtig) _richtig++;
             setState(() { _answered = true; _lastCorrect = richtig; });
+            if (richtig) SoundService.playCorrect(); else SoundService.playWrong();
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -476,6 +479,7 @@ class _TaskScreenState extends State<TaskScreen> {
       if (_matchedPairs.length == gruppen) {
         _richtig++;
         setState(() { _answered = true; _lastCorrect = true; });
+        SoundService.playCorrect();
       }
     } else {
       // Falsch – kurz rot leuchten
@@ -637,6 +641,7 @@ class _TaskScreenState extends State<TaskScreen> {
     }
     if (richtig) _richtig++;
     setState(() { _answered = true; _lastCorrect = richtig; });
+    if (richtig) SoundService.playCorrect(); else SoundService.playWrong();
   }
 
   // ── Completion Screen ─────────────────────────────

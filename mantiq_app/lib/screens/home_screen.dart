@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/sound_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
@@ -80,7 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _tab,
-        onTap: (i) => setState(() { _prevTab = _tab; _tab = i; }),
+        onTap: (i) {
+          SoundService.playTap();
+          setState(() { _prevTab = _tab; _tab = i; });
+        },
         backgroundColor: AppColors.surface,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textMuted,
