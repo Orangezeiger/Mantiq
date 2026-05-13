@@ -293,6 +293,48 @@ class ApiService {
     return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
   }
 
+  // ── Teilen ────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> generateShareCode(int treeId, int userId) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/shares/generate'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'treeId': treeId, 'userId': userId}),
+    );
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> getSharePreview(String code) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/shares/${code.toUpperCase()}'));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> importByCode(String code, int userId) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/shares/${code.toUpperCase()}/import'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'userId': userId}),
+    );
+    return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
+  }
+
+  static Future<Map<String, dynamic>?> exportTree(int treeId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/shares/export/$treeId'));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> importFile(int userId, Map<String, dynamic> tree) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/shares/import-file'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'userId': userId, 'tree': tree}),
+    );
+    return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
+  }
+
   // ── Version ───────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getServerVersion() async {

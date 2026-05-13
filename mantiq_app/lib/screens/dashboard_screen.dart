@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'tree_screen.dart';
@@ -238,9 +243,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             await ApiService.deleteTree(treeId);
             _loadTrees();
           },
-          onEdit: () => _editTree(tree),
+          onEdit:  () => _editTree(tree),
+          onShare: () => _shareTree(tree),
         );
       },
+    );
+  }
+
+  void _shareTree(Map<String, dynamic> tree) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ShareSheet(
+        tree: tree,
+        userId: widget.userId,
+        onImported: _loadTrees,
+      ),
     );
   }
 }
@@ -251,8 +271,9 @@ class _TreeCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final VoidCallback onShare;
 
-  const _TreeCard({required this.tree, required this.onTap, required this.onDelete, required this.onEdit});
+  const _TreeCard({required this.tree, required this.onTap, required this.onDelete, required this.onEdit, required this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -287,6 +308,14 @@ class _TreeCard extends StatelessWidget {
                         color: AppColors.text, letterSpacing: -0.4,
                       )),
                   ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: onShare,
+                    icon: const Icon(Icons.share_outlined,
+                        color: AppColors.textMuted, size: 20),
+                  ),
+                  const SizedBox(width: 4),
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -364,19 +393,28 @@ class _NewTreeSheet extends StatefulWidget {
 }
 
 class _NewTreeSheetState extends State<_NewTreeSheet> {
-  bool _isPdf   = false;
+  // 0 = Manuell, 1 = Aus PDF, 2 = Per Code, 3 = Aus Datei
+  int  _mode    = 0;
   bool _loading = false;
   String? _status;
 
   final _titelCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
+  final _codeCtrl  = TextEditingController();
   String? _pdfPath;
   String? _pdfName;
+  String? _mantiqPath;
+  String? _mantiqName;
+
+  bool get _isPdf  => _mode == 1;
+  bool get _isCode => _mode == 2;
+  bool get _isFile => _mode == 3;
 
   @override
   void dispose() {
     _titelCtrl.dispose();
     _descCtrl.dispose();
+    _codeCtrl.dispose();
     super.dispose();
   }
 
@@ -390,16 +428,69 @@ class _NewTreeSheetState extends State<_NewTreeSheet> {
     }
   }
 
-  Future<void> _submit() async {
-    final titel = _titelCtrl.text.trim();
+  Future<void> _pickMantiqFile() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _mantiqPath = result.files.single.path;
+        _mantiqName = result.files.single.name;
+      });
+    }
+  }
 
-    // Manuell: Titel ist Pflicht. PDF: Titel optional (Claude generiert ihn)
-    if (!_isPdf && titel.isEmpty) {
-      setState(() => _status = 'Bitte einen Titel eingeben.');
+  Future<void> _submit() async {
+    setState(() { _loading = true; _status = null; });
+
+    if (_isCode) {
+      final code = _codeCtrl.text.trim().toUpperCase();
+      if (code.length != 6) {
+        setState(() { _loading = false; _status = 'Bitte einen 6-stelligen Code eingeben.'; });
+        return;
+      }
+      final res = await ApiService.importByCode(code, widget.userId);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      if (res['ok']) {
+        widget.onCreated();
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('„${res['data']['title']}" importiert ✓'),
+          backgroundColor: AppColors.surface2, behavior: SnackBarBehavior.floating,
+        ));
+      } else {
+        setState(() => _status = 'Code nicht gefunden.');
+      }
       return;
     }
 
-    setState(() { _loading = true; _status = null; });
+    if (_isFile) {
+      if (_mantiqPath == null) {
+        setState(() { _loading = false; _status = 'Bitte eine .mantiq-Datei auswählen.'; });
+        return;
+      }
+      final content = await File(_mantiqPath!).readAsString();
+      final tree = jsonDecode(content) as Map<String, dynamic>;
+      final res  = await ApiService.importFile(widget.userId, tree);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      if (res['ok']) {
+        widget.onCreated();
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('„${res['data']['title']}" importiert ✓'),
+          backgroundColor: AppColors.surface2, behavior: SnackBarBehavior.floating,
+        ));
+      } else {
+        setState(() => _status = 'Import fehlgeschlagen.');
+      }
+      return;
+    }
+
+    final titel = _titelCtrl.text.trim();
+    if (!_isPdf && titel.isEmpty) {
+      setState(() { _loading = false; _status = 'Bitte einen Titel eingeben.'; });
+      return;
+    }
 
     if (_isPdf) {
       if (_pdfPath == null) {
@@ -453,25 +544,76 @@ class _NewTreeSheetState extends State<_NewTreeSheet> {
         const SizedBox(height: 20),
 
         // Modus-Toggle
-        Row(children: [
-          _modeChip('Manuell', !_isPdf, () => setState(() => _isPdf = false)),
-          const SizedBox(width: 8),
-          _modeChip('Aus PDF', _isPdf,  () => setState(() => _isPdf = true)),
-        ]),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            _modeChip('Manuell',    _mode == 0, () => setState(() => _mode = 0)),
+            const SizedBox(width: 8),
+            _modeChip('Aus PDF',    _mode == 1, () => setState(() => _mode = 1)),
+            const SizedBox(width: 8),
+            _modeChip('Per Code',   _mode == 2, () => setState(() => _mode = 2)),
+            const SizedBox(width: 8),
+            _modeChip('Aus Datei',  _mode == 3, () => setState(() => _mode = 3)),
+          ]),
+        ),
         const SizedBox(height: 20),
 
-        // Titel
-        TextField(
-          controller: _titelCtrl,
-          style: const TextStyle(color: AppColors.text),
-          decoration: InputDecoration(
-            hintText: _isPdf ? 'Titel (optional – Claude generiert ihn)' : 'Titel (z.B. Lineare Algebra)',
+        // Per Code
+        if (_isCode) ...[
+          TextField(
+            controller: _codeCtrl,
+            style: const TextStyle(color: AppColors.text, fontSize: 20,
+                fontWeight: FontWeight.w700, letterSpacing: 4),
+            textCapitalization: TextCapitalization.characters,
+            maxLength: 6,
+            decoration: const InputDecoration(hintText: 'ABCD12', counterText: ''),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
+
+        // Aus Datei (.mantiq)
+        if (_isFile) ...[
+          GestureDetector(
+            onTap: _pickMantiqFile,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _mantiqPath != null ? AppColors.primary : AppColors.border),
+              ),
+              child: Column(children: [
+                Text(_mantiqPath != null ? '📎' : '🌿', style: const TextStyle(fontSize: 28)),
+                const SizedBox(height: 8),
+                Text(
+                  _mantiqPath != null ? _mantiqName! : '.mantiq-Datei auswählen',
+                  style: TextStyle(
+                    color: _mantiqPath != null ? AppColors.primary : AppColors.textMuted,
+                    fontSize: 14, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
+                ),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Titel (nur Manuell und PDF)
+        if (!_isCode && !_isFile) ...[
+          TextField(
+            controller: _titelCtrl,
+            style: const TextStyle(color: AppColors.text),
+            decoration: InputDecoration(
+              hintText: _isPdf ? 'Titel (optional – Claude generiert ihn)' : 'Titel (z.B. Lineare Algebra)',
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // Manuell: Beschreibung
-        if (!_isPdf) ...[
+        if (_mode == 0) ...[
           TextField(
             controller: _descCtrl,
             style: const TextStyle(color: AppColors.text),
@@ -540,7 +682,7 @@ class _NewTreeSheetState extends State<_NewTreeSheet> {
             child: _loading
                 ? const SizedBox(width: 20, height: 20,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : Text(_isPdf ? 'Aufgaben generieren' : 'Erstellen'),
+                : Text(_isCode ? 'Importieren' : _isFile ? 'Importieren' : _isPdf ? 'Aufgaben generieren' : 'Erstellen'),
           ),
         ),
 
@@ -563,6 +705,155 @@ class _NewTreeSheetState extends State<_NewTreeSheet> {
             color: active ? Colors.white : AppColors.textMuted,
             fontSize: 13, fontWeight: FontWeight.w600,
           )),
+      ),
+    );
+  }
+}
+
+// ── Share-Sheet ──────────────────────────────────────
+class _ShareSheet extends StatefulWidget {
+  final Map<String, dynamic> tree;
+  final int userId;
+  final VoidCallback onImported;
+  const _ShareSheet({required this.tree, required this.userId, required this.onImported});
+
+  @override
+  State<_ShareSheet> createState() => _ShareSheetState();
+}
+
+class _ShareSheetState extends State<_ShareSheet> {
+  bool    _loading = false;
+  String? _code;
+  String? _status;
+
+  Future<void> _generateCode() async {
+    setState(() { _loading = true; _status = null; });
+    final res = await ApiService.generateShareCode(
+        widget.tree['id'] as int, widget.userId);
+    setState(() {
+      _loading = false;
+      _code    = res?['code'] as String?;
+      if (_code == null) _status = 'Fehler beim Generieren.';
+    });
+  }
+
+  Future<void> _exportFile() async {
+    setState(() { _loading = true; _status = null; });
+    final data = await ApiService.exportTree(widget.tree['id'] as int);
+    if (data == null) {
+      setState(() { _loading = false; _status = 'Export fehlgeschlagen.'; });
+      return;
+    }
+    final dir  = await getTemporaryDirectory();
+    final name = (widget.tree['title'] as String)
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_\- ]'), '')
+        .trim()
+        .replaceAll(' ', '_');
+    final file = File('${dir.path}/$name.mantiq');
+    await file.writeAsString(jsonEncode(data));
+    setState(() => _loading = false);
+    if (!mounted) return;
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path)], text: 'Mantiq-Baum: ${widget.tree['title']}'),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Center(child: Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+        const SizedBox(height: 20),
+        Text('„${widget.tree['title']}" teilen',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.text)),
+        const SizedBox(height: 20),
+
+        // Optionen
+        _shareOption(
+          icon: Icons.tag_rounded,
+          label: 'Per Code teilen',
+          sub: 'Freund gibt den Code in der App ein',
+          onTap: _generateCode,
+        ),
+        const SizedBox(height: 10),
+        _shareOption(
+          icon: Icons.file_download_outlined,
+          label: 'Als .mantiq-Datei exportieren',
+          sub: 'Über WhatsApp, Mail o.ä. verschicken',
+          onTap: _exportFile,
+        ),
+
+        if (_loading) ...[
+          const SizedBox(height: 16),
+          const LinearProgressIndicator(
+            backgroundColor: AppColors.border,
+            valueColor: AlwaysStoppedAnimation(AppColors.primary),
+          ),
+        ],
+        if (_status != null) ...[
+          const SizedBox(height: 12),
+          Text(_status!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+        ],
+        if (_code != null) ...[
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface2,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+            ),
+            child: Column(children: [
+              const Text('Dein Share-Code', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              const SizedBox(height: 6),
+              Text(_code!,
+                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900,
+                      color: AppColors.primary, letterSpacing: 6)),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: _code!));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Code kopiert!'),
+                    backgroundColor: AppColors.surface2,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                },
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.copy, size: 14, color: AppColors.textMuted),
+                  SizedBox(width: 4),
+                  Text('Kopieren', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                ]),
+              ),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _shareOption({required IconData icon, required String label, required String sub, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: _loading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface2,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(children: [
+          Icon(icon, color: AppColors.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 14)),
+            Text(sub,   style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          ])),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.border),
+        ]),
       ),
     );
   }
