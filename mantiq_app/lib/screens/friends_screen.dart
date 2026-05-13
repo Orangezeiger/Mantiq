@@ -318,7 +318,9 @@ class _AddFriendSheetState extends State<_AddFriendSheet> {
   }
 
   Future<void> _sendRequest(dynamic user) async {
-    final res = await ApiService.sendFriendRequest(widget.userId, user['userId'] as int);
+    final toId = (user['userId'] as num?)?.toInt();
+    if (toId == null) return;
+    final res = await ApiService.sendFriendRequest(widget.userId, toId);
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
