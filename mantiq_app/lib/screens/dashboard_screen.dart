@@ -83,6 +83,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text('mantiq',
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24,
               color: AppColors.primary, letterSpacing: -1)),
+        actions: [
+          Row(children: [
+            Text('🔥', style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 3),
+            Text('$_streakDays',
+              style: const TextStyle(
+                color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 14),
+            Text('🪙', style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 3),
+            Text('$_coins',
+              style: const TextStyle(
+                color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 16),
+          ]),
+        ],
       ),
       body: RefreshIndicator(
         color: AppColors.primary,
@@ -139,12 +155,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 2),
         const Text('Deine Lernbäume',
           style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-        const SizedBox(height: 10),
-        Row(children: [
-          _statChip('🔥', '$_streakDays Tage'),
-          const SizedBox(width: 8),
-          _statChip('🪙', '$_coins'),
-        ]),
       ]),
     );
   }
