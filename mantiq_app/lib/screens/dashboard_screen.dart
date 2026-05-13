@@ -401,7 +401,7 @@ class _NewTreeSheet extends StatefulWidget {
 }
 
 class _NewTreeSheetState extends State<_NewTreeSheet> {
-  // 0 = Manuell, 1 = Aus PDF, 2 = Per Code, 3 = Aus Datei
+  // 0 = PDF, 1 = Code, 2 = Datei, 3 = Manuell
   int  _mode    = 0;
   bool _loading = false;
   String? _status;
@@ -414,9 +414,9 @@ class _NewTreeSheetState extends State<_NewTreeSheet> {
   String? _mantiqPath;
   String? _mantiqName;
 
-  bool get _isPdf  => _mode == 1;
-  bool get _isCode => _mode == 2;
-  bool get _isFile => _mode == 3;
+  bool get _isPdf  => _mode == 0;
+  bool get _isCode => _mode == 1;
+  bool get _isFile => _mode == 2;
 
   @override
   void dispose() {
@@ -555,13 +555,13 @@ class _NewTreeSheetState extends State<_NewTreeSheet> {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(children: [
-            _modeChip('Manuell',    _mode == 0, () => setState(() => _mode = 0)),
+            _modeChip('Aus PDF',    _mode == 0, () => setState(() => _mode = 0)),
             const SizedBox(width: 8),
-            _modeChip('Aus PDF',    _mode == 1, () => setState(() => _mode = 1)),
+            _modeChip('Per Code',   _mode == 1, () => setState(() => _mode = 1)),
             const SizedBox(width: 8),
-            _modeChip('Per Code',   _mode == 2, () => setState(() => _mode = 2)),
+            _modeChip('Aus Datei',  _mode == 2, () => setState(() => _mode = 2)),
             const SizedBox(width: 8),
-            _modeChip('Aus Datei',  _mode == 3, () => setState(() => _mode = 3)),
+            _modeChip('Manuell',    _mode == 3, () => setState(() => _mode = 3)),
           ]),
         ),
         const SizedBox(height: 20),
@@ -621,7 +621,7 @@ class _NewTreeSheetState extends State<_NewTreeSheet> {
         ],
 
         // Manuell: Beschreibung
-        if (_mode == 0) ...[
+        if (_mode == 3) ...[
           TextField(
             controller: _descCtrl,
             style: const TextStyle(color: AppColors.text),
@@ -752,18 +752,21 @@ class _ShareSheetState extends State<_ShareSheet> {
       setState(() { _loading = false; _status = 'Export fehlgeschlagen.'; });
       return;
     }
-    final dir  = await getTemporaryDirectory();
-    final name = (widget.tree['title'] as String)
+    final dir      = await getTemporaryDirectory();
+    final rawTitle = widget.tree['title'] as String? ?? 'baum';
+    final safeName = rawTitle
         .replaceAll(RegExp(r'[^a-zA-Z0-9_\- ]'), '')
         .trim()
         .replaceAll(' ', '_');
-    final file = File('${dir.path}/$name.mantiq');
+    final fileName = (safeName.isEmpty ? 'mantiq_baum' : safeName) + '.mantiq';
+    final file = File('${dir.path}/$fileName');
     await file.writeAsString(jsonEncode(data));
     setState(() => _loading = false);
     if (!mounted) return;
     await Share.shareXFiles(
-      [XFile(file.path)],
-      text: 'Mantiq-Baum: ${widget.tree['title']}',
+      [XFile(file.path, mimeType: 'application/json')],
+      subject: 'Mantiq-Baum: $rawTitle',
+      text: 'Mantiq-Baum: $rawTitle',
     );
   }
 
