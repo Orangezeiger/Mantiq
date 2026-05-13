@@ -82,6 +82,15 @@ class ApiService {
     return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
   }
 
+  static Future<bool> updateTree(int treeId, String title, String description) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/trees/$treeId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'title': title, 'description': description}),
+    );
+    return res.statusCode == 200;
+  }
+
   static Future<bool> deleteTree(int treeId) async {
     final res = await http.delete(Uri.parse('$baseUrl/api/trees/$treeId'));
     return res.statusCode == 204;

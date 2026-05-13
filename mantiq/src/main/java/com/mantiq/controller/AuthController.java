@@ -55,7 +55,7 @@ public class AuthController {
         nutzer.setPasswordHash(passwordEncoder.encode(passwort));
         nutzer.setFirstName(firstName.trim());
         nutzer.setLastName(lastName.trim());
-        nutzer.setDisplayName(firstName.trim() + " " + lastName.trim());
+        nutzer.setDisplayName(firstName.trim());
         nutzer.setCoins(50);
         userRepository.save(nutzer);
 

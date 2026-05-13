@@ -16,20 +16,34 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  List<dynamic> _trees = [];
-  bool _loading = true;
+  List<dynamic> _trees   = [];
+  bool _loading          = true;
+  int  _coins            = 0;
+  int  _streakDays       = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadTrees();
+    _load();
   }
 
-  Future<void> _loadTrees() async {
+  Future<void> _load() async {
     setState(() => _loading = true);
-    final trees = await ApiService.getTrees(widget.userId);
-    setState(() { _trees = trees; _loading = false; });
+    final results = await Future.wait([
+      ApiService.getTrees(widget.userId),
+      ApiService.getUser(widget.userId),
+    ]);
+    final trees = results[0] as List<dynamic>;
+    final user  = results[1] as Map<String, dynamic>?;
+    setState(() {
+      _trees     = trees;
+      _coins     = user?['coins']     as int? ?? 0;
+      _streakDays = user?['streakDays'] as int? ?? 0;
+      _loading   = false;
+    });
   }
+
+  Future<void> _loadTrees() => _load();
 
   // ── Neuer Baum Modal ────────────────────────────────
   void _openNewTreeModal() {
@@ -99,19 +113,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
         : widget.email.split('@').first;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Hallo, $name! 👋',
-              style: const TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w800,
-                color: AppColors.text, letterSpacing: -0.5)),
-            const SizedBox(height: 2),
-            const Text('Deine Lernbäume',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-          ]),
-        ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Hallo, $name! 👋',
+          style: const TextStyle(
+            fontSize: 22, fontWeight: FontWeight.w800,
+            color: AppColors.text, letterSpacing: -0.5)),
+        const SizedBox(height: 2),
+        const Text('Deine Lernbäume',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+        const SizedBox(height: 10),
+        Row(children: [
+          _statChip('🔥', '$_streakDays Tage'),
+          const SizedBox(width: 8),
+          _statChip('🪙', '$_coins'),
+        ]),
       ]),
+    );
+  }
+
+  Widget _statChip(String icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(icon, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(
+            fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+
+  void _editTree(Map<String, dynamic> tree) {
+    final titleCtrl = TextEditingController(text: tree['title'] ?? '');
+    final descCtrl  = TextEditingController(text: tree['description'] ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Baum bearbeiten', style: TextStyle(color: AppColors.text)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: titleCtrl,
+            style: const TextStyle(color: AppColors.text),
+            decoration: const InputDecoration(hintText: 'Titel'),
+            autofocus: true,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: descCtrl,
+            style: const TextStyle(color: AppColors.text),
+            decoration: const InputDecoration(hintText: 'Beschreibung (optional)'),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final title = titleCtrl.text.trim();
+              if (title.isEmpty) return;
+              Navigator.pop(ctx);
+              await ApiService.updateTree(tree['id'] as int, title, descCtrl.text.trim());
+              _loadTrees();
+            },
+            child: const Text('Speichern', style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -135,6 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             await ApiService.deleteTree(treeId);
             _loadTrees();
           },
+          onEdit: () => _editTree(tree),
         );
       },
     );
@@ -146,8 +222,9 @@ class _TreeCard extends StatelessWidget {
   final Map<String, dynamic> tree;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
-  const _TreeCard({required this.tree, required this.onTap, required this.onDelete});
+  const _TreeCard({required this.tree, required this.onTap, required this.onDelete, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -182,6 +259,14 @@ class _TreeCard extends StatelessWidget {
                         color: AppColors.text, letterSpacing: -0.4,
                       )),
                   ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined,
+                        color: AppColors.textMuted, size: 20),
+                  ),
+                  const SizedBox(width: 4),
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),

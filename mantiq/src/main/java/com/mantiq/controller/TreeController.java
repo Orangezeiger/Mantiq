@@ -69,6 +69,22 @@ public class TreeController {
         return ResponseEntity.ok(Map.of("id", baum.getId(), "titel", baum.getTitle()));
     }
 
+    // Baum umbenennen: PUT /api/trees/{id}
+    // Body: { "title": "...", "description": "..." }
+    @PutMapping("/{id}")
+    public ResponseEntity<?> baumAktualisieren(@PathVariable Integer id,
+                                               @RequestBody Map<String, String> body) {
+        Tree baum = treeRepository.findById(id).orElse(null);
+        if (baum == null) return ResponseEntity.notFound().build();
+
+        String titel = body.get("title");
+        if (titel != null && !titel.isBlank()) baum.setTitle(titel.trim());
+        if (body.containsKey("description")) baum.setDescription(body.get("description"));
+        treeRepository.save(baum);
+
+        return ResponseEntity.ok(Map.of("id", baum.getId(), "title", baum.getTitle()));
+    }
+
     // Baum loeschen: DELETE /api/trees/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<?> baumLoeschen(@PathVariable Integer id) {
