@@ -24,7 +24,10 @@
       "Bash(jobs)",
       "Bash(echo \"Server neu gestartet \\(PID $!\\)\")",
       "Bash(awk '{print $2}')",
-      "Bash(./mvnw package *)"
+      "Bash(./mvnw package *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }

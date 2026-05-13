@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 User=root
+WorkingDirectory=/root
 ExecStart=/usr/bin/java -jar /root/mantiq.jar
 Restart=always
 RestartSec=5

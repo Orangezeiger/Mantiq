@@ -22,6 +22,12 @@ public class User {
     @Column(name = "display_name")
     private String displayName;
 
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
+
     @Column(nullable = false)
     private Integer xp = 0;
 
@@ -63,6 +69,12 @@ public class User {
 
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
 
     public Integer getXp() { return xp; }
     public void setXp(Integer xp) { this.xp = xp; }

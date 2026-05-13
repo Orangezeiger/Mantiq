@@ -95,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildGreeting() {
     final name = widget.displayName.isNotEmpty
-        ? widget.displayName
+        ? widget.displayName.split(' ').first
         : widget.email.split('@').first;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),

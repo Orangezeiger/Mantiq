@@ -28,18 +28,22 @@ public class AuthController {
     }
 
     // Registrierung: POST /api/auth/register
-    // Body: { "email": "...", "password": "...", "displayName": "..." }
+    // Body: { "email": "...", "password": "...", "firstName": "...", "lastName": "..." }
     @PostMapping("/register")
     public ResponseEntity<?> registrieren(@RequestBody Map<String, String> body) {
-        String email       = body.get("email");
-        String passwort    = body.get("password");
-        String displayName = body.get("displayName");
+        String email     = body.get("email");
+        String passwort  = body.get("password");
+        String firstName = body.get("firstName");
+        String lastName  = body.get("lastName");
 
         if (email == null || passwort == null || email.isBlank() || passwort.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("fehler", "E-Mail und Passwort erforderlich"));
         }
-        if (displayName == null || displayName.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("fehler", "Nutzername erforderlich"));
+        if (firstName == null || firstName.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("fehler", "Vorname erforderlich"));
+        }
+        if (lastName == null || lastName.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("fehler", "Nachname erforderlich"));
         }
 
         if (userRepository.findByEmail(email).isPresent()) {
@@ -49,7 +53,10 @@ public class AuthController {
         User nutzer = new User();
         nutzer.setEmail(email);
         nutzer.setPasswordHash(passwordEncoder.encode(passwort));
-        nutzer.setDisplayName(displayName.trim());
+        nutzer.setFirstName(firstName.trim());
+        nutzer.setLastName(lastName.trim());
+        nutzer.setDisplayName(firstName.trim() + " " + lastName.trim());
+        nutzer.setCoins(50);
         userRepository.save(nutzer);
 
         demoTreeService.createForUser(nutzer);

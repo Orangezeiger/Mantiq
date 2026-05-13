@@ -18,11 +18,14 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> register(
-      String email, String password, String displayName) async {
+      String email, String password, String firstName, String lastName) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/auth/register'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password, 'displayName': displayName}),
+      body: jsonEncode({
+        'email': email, 'password': password,
+        'firstName': firstName, 'lastName': lastName,
+      }),
     );
     return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
   }

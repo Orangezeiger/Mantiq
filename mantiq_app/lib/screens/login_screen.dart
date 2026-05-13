@@ -16,30 +16,37 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _loading  = false;
 
-  final _emailCtrl = TextEditingController();
-  final _pwCtrl    = TextEditingController();
-  final _nameCtrl  = TextEditingController();
+  final _emailCtrl     = TextEditingController();
+  final _pwCtrl        = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl  = TextEditingController();
   String? _fehler;
 
   @override
   void dispose() {
     _emailCtrl.dispose();
     _pwCtrl.dispose();
-    _nameCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final email = _emailCtrl.text.trim();
-    final pw    = _pwCtrl.text;
-    final name  = _nameCtrl.text.trim();
+    final email     = _emailCtrl.text.trim();
+    final pw        = _pwCtrl.text;
+    final firstName = _firstNameCtrl.text.trim();
+    final lastName  = _lastNameCtrl.text.trim();
 
     if (email.isEmpty || pw.isEmpty) {
       setState(() => _fehler = 'Bitte alle Felder ausfüllen.');
       return;
     }
-    if (!_isLogin && name.isEmpty) {
-      setState(() => _fehler = 'Bitte einen Nutzernamen eingeben.');
+    if (!_isLogin && firstName.isEmpty) {
+      setState(() => _fehler = 'Bitte Vorname eingeben.');
+      return;
+    }
+    if (!_isLogin && lastName.isEmpty) {
+      setState(() => _fehler = 'Bitte Nachname eingeben.');
       return;
     }
     if (!_isLogin && pw.length < 6) {
@@ -51,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final result = _isLogin
         ? await ApiService.login(email, pw)
-        : await ApiService.register(email, pw, name);
+        : await ApiService.register(email, pw, firstName, lastName);
 
     if (!mounted) return;
     setState(() => _loading = false);
@@ -76,7 +83,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLogin = true;
         _fehler  = null;
         _pwCtrl.clear();
-        _nameCtrl.clear();
+        _firstNameCtrl.clear();
+        _lastNameCtrl.clear();
       });
       _showSnack('Registrierung erfolgreich – jetzt anmelden!');
     }
@@ -147,14 +155,29 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // Nutzername (nur bei Registrierung)
+                    // Vor- und Nachname (nur bei Registrierung)
                     if (!_isLogin) ...[
-                      TextField(
-                        controller: _nameCtrl,
-                        style: const TextStyle(color: AppColors.text),
-                        decoration: const InputDecoration(hintText: 'Nutzername'),
-                        onSubmitted: (_) => _submit(),
-                      ),
+                      Row(children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _firstNameCtrl,
+                            style: const TextStyle(color: AppColors.text),
+                            decoration: const InputDecoration(hintText: 'Vorname'),
+                            textCapitalization: TextCapitalization.words,
+                            onSubmitted: (_) => _submit(),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: _lastNameCtrl,
+                            style: const TextStyle(color: AppColors.text),
+                            decoration: const InputDecoration(hintText: 'Nachname'),
+                            textCapitalization: TextCapitalization.words,
+                            onSubmitted: (_) => _submit(),
+                          ),
+                        ),
+                      ]),
                       const SizedBox(height: 12),
                     ],
 
