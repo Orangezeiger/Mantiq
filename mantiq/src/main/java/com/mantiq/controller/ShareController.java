@@ -98,6 +98,7 @@ public class ShareController {
 
     // ── Als JSON exportieren: GET /api/shares/export/{treeId} ───────
     @GetMapping("/export/{treeId}")
+    @Transactional
     public ResponseEntity<?> export(@PathVariable Integer treeId) {
         Tree baum = treeRepository.findById(treeId).orElse(null);
         if (baum == null) return ResponseEntity.notFound().build();
