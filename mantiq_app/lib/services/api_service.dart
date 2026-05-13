@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// Im Simulator: localhost, auf echtem Geraet: IP des Homelab-Servers
-const String baseUrl = 'http://192.168.178.163:8080';
+const String baseUrl = 'https://api.msserver.dev';
 
 class ApiService {
 
