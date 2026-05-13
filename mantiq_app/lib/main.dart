@@ -12,7 +12,7 @@ void main() async {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  await NotificationService.init();
+  try { await NotificationService.init(); } catch (_) {}
   runApp(const MantiqApp());
 }
 

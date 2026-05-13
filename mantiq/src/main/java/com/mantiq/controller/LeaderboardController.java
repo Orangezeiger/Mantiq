@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/leaderboard")
@@ -44,7 +45,9 @@ public class LeaderboardController {
         int maxXp = LIGA_GRENZEN[ligaIndex][1];
 
         // 12 Mitglieder in dieser Liga (inkl. sich selbst)
-        List<User> mitglieder = userRepository.findLeagueMembers(minXp, maxXp, PageRequest.of(0, 12));
+        List<User> mitglieder = maxXp == -1
+            ? userRepository.findTopLeagueMembers(minXp, PageRequest.of(0, 12))
+            : userRepository.findLeagueMembers(minXp, maxXp, PageRequest.of(0, 12));
 
         // Eigener Rang in der Liga
         int ligaRang = 1;
@@ -64,8 +67,12 @@ public class LeaderboardController {
             globalRang++;
         }
 
-        // Freunde
-        List<User> freunde = userRepository.findFriendsByXp(userId);
+        // Freunde (beide Richtungen zusammenfuehren, nach XP sortieren)
+        List<User> freunde = Stream.concat(
+                userRepository.findFriendsAsSender(userId).stream(),
+                userRepository.findFriendsAsReceiver(userId).stream())
+            .sorted(Comparator.comparingInt(User::getXp).reversed())
+            .toList();
 
         Map<String, Object> liga = new HashMap<>();
         liga.put("name",            LIGA_NAMEN[ligaIndex]);
@@ -94,7 +101,9 @@ public class LeaderboardController {
         int ligaIndex = ligaFuer(ich.getXp());
         int minXp = LIGA_GRENZEN[ligaIndex][0];
         int maxXp = LIGA_GRENZEN[ligaIndex][1];
-        List<User> mitglieder = userRepository.findLeagueMembers(minXp, maxXp, PageRequest.of(0, 3));
+        List<User> mitglieder = maxXp == -1
+            ? userRepository.findTopLeagueMembers(minXp, PageRequest.of(0, 3))
+            : userRepository.findLeagueMembers(minXp, maxXp, PageRequest.of(0, 3));
 
         int rang = 1;
         boolean inTop3 = false;

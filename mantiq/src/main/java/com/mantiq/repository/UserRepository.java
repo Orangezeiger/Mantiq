@@ -23,15 +23,20 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("SELECT u FROM User u ORDER BY u.xp DESC")
     List<User> findTopByXp(org.springframework.data.domain.Pageable pageable);
 
-    // Liga-Mitglieder (XP-Bereich), maxXp=-1 bedeutet kein oberes Limit
-    @Query("SELECT u FROM User u WHERE u.xp >= :minXp AND (:maxXp = -1 OR u.xp < :maxXp) ORDER BY u.xp DESC")
+    // Liga-Mitglieder mit oberem Limit
+    @Query("SELECT u FROM User u WHERE u.xp >= :minXp AND u.xp < :maxXp ORDER BY u.xp DESC")
     List<User> findLeagueMembers(@Param("minXp") int minXp, @Param("maxXp") int maxXp,
                                  org.springframework.data.domain.Pageable pageable);
 
-    // Freunde eines Nutzers nach XP sortiert (beide Richtungen der Freundschaft)
-    @Query("SELECT CASE WHEN f.user.id = :userId THEN f.friend ELSE f.user END " +
-           "FROM Friendship f WHERE (f.user.id = :userId OR f.friend.id = :userId) " +
-           "AND f.status = 'ACCEPTED' ORDER BY " +
-           "CASE WHEN f.user.id = :userId THEN f.friend.xp ELSE f.user.xp END DESC")
-    List<User> findFriendsByXp(@Param("userId") Integer userId);
+    // Liga-Mitglieder ohne oberes Limit (Diamant)
+    @Query("SELECT u FROM User u WHERE u.xp >= :minXp ORDER BY u.xp DESC")
+    List<User> findTopLeagueMembers(@Param("minXp") int minXp,
+                                    org.springframework.data.domain.Pageable pageable);
+
+    // Freunde: beide Richtungen der Freundschaft als zwei getrennte Queries
+    @Query("SELECT f.friend FROM Friendship f WHERE f.user.id = :userId AND f.status = 'ACCEPTED'")
+    List<User> findFriendsAsSender(@Param("userId") Integer userId);
+
+    @Query("SELECT f.user FROM Friendship f WHERE f.friend.id = :userId AND f.status = 'ACCEPTED'")
+    List<User> findFriendsAsReceiver(@Param("userId") Integer userId);
 }
