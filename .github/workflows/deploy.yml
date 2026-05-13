@@ -11,6 +11,7 @@ jobs:
     runs-on: self-hosted
     env:
       HOME: /root
+      MAVEN_USER_HOME: /root/.m2
     steps:
       - uses: actions/checkout@v4
 
