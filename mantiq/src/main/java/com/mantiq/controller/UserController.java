@@ -100,6 +100,7 @@ public class UserController {
         m.put("id",                  u.getId());
         m.put("email",               u.getEmail());
         m.put("displayName",         u.getDisplayName() != null ? u.getDisplayName() : "");
+        m.put("firstName",           u.getFirstName() != null ? u.getFirstName() : "");
         m.put("xp",                  u.getXp());
         m.put("coins",               u.getCoins());
         m.put("streakDays",          u.getStreakDays());

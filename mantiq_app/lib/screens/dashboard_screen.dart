@@ -21,6 +21,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _loading          = true;
   int  _coins            = 0;
   int  _streakDays       = 0;
+  String _firstName      = '';
   Timer? _statsTimer;
 
   @override
@@ -54,10 +55,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final trees = results[0] as List<dynamic>;
     final user  = results[1] as Map<String, dynamic>?;
     setState(() {
-      _trees     = trees;
-      _coins     = user?['coins']     as int? ?? 0;
+      _trees      = trees;
+      _coins      = user?['coins']      as int? ?? 0;
       _streakDays = user?['streakDays'] as int? ?? 0;
-      _loading   = false;
+      _firstName  = user?['firstName']  as String? ?? '';
+      _loading    = false;
     });
   }
 
@@ -142,9 +144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildGreeting() {
-    final name = widget.displayName.isNotEmpty
-        ? widget.displayName.split(' ').first
-        : widget.email.split('@').first;
+    final name = _firstName.isNotEmpty ? _firstName : widget.email.split('@').first;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
