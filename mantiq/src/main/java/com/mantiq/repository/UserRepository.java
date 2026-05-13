@@ -39,4 +39,17 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     @Query("SELECT f.user FROM Friendship f WHERE f.friend.id = :userId AND f.status = 'ACCEPTED'")
     List<User> findFriendsAsReceiver(@Param("userId") Integer userId);
+
+    // Globaler Rang: Anzahl Nutzer mit mehr XP
+    long countByXpGreaterThan(int xp);
+
+    // Nachbar direkt ueber dem Nutzer (naechst hoeheres XP)
+    @Query("SELECT u FROM User u WHERE u.xp > :xp AND u.id != :userId ORDER BY u.xp ASC")
+    List<User> findUserAbove(@Param("xp") int xp, @Param("userId") Integer userId,
+                             org.springframework.data.domain.Pageable pageable);
+
+    // Nachbar direkt unter dem Nutzer (naechst niedrigeres XP)
+    @Query("SELECT u FROM User u WHERE u.xp < :xp AND u.id != :userId ORDER BY u.xp DESC")
+    List<User> findUserBelow(@Param("xp") int xp, @Param("userId") Integer userId,
+                             org.springframework.data.domain.Pageable pageable);
 }

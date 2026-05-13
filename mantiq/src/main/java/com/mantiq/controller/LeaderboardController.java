@@ -59,12 +59,37 @@ public class LeaderboardController {
         // Belohnung verfuegbar?
         boolean kannBelohnen = ligaRang <= 3 && kannBelohnungAblegen(ich);
 
-        // Global Top-50
-        List<User> global = userRepository.findTopByXp(PageRequest.of(0, 50));
-        int globalRang = 1;
-        for (User u : global) {
-            if (u.getId().equals(userId)) break;
-            globalRang++;
+        // Global Top-100 mit Rang-Nummer
+        List<User> global = userRepository.findTopByXp(PageRequest.of(0, 100));
+        int globalRang = (int) userRepository.countByXpGreaterThan(ich.getXp()) + 1;
+        boolean inTop100 = global.stream().anyMatch(u -> u.getId().equals(userId));
+
+        List<Map<String, Object>> globalMaps = new ArrayList<>();
+        for (int i = 0; i < global.size(); i++) {
+            Map<String, Object> m = nutzerZuMap(global.get(i), userId);
+            m.put("rang", i + 1);
+            globalMaps.add(m);
+        }
+
+        // Kontext-Zeilen wenn nicht in Top 100
+        List<Map<String, Object>> globalContext = null;
+        if (!inTop100) {
+            List<User> aboveList = userRepository.findUserAbove(ich.getXp(), userId, PageRequest.of(0, 1));
+            List<User> belowList = userRepository.findUserBelow(ich.getXp(), userId, PageRequest.of(0, 1));
+            globalContext = new ArrayList<>();
+            if (!aboveList.isEmpty()) {
+                Map<String, Object> m = nutzerZuMap(aboveList.get(0), userId);
+                m.put("rang", globalRang - 1);
+                globalContext.add(m);
+            }
+            Map<String, Object> meMap = nutzerZuMap(ich, userId);
+            meMap.put("rang", globalRang);
+            globalContext.add(meMap);
+            if (!belowList.isEmpty()) {
+                Map<String, Object> m = nutzerZuMap(belowList.get(0), userId);
+                m.put("rang", globalRang + 1);
+                globalContext.add(m);
+            }
         }
 
         // Freunde (beide Richtungen zusammenfuehren, nach XP sortieren)
@@ -84,10 +109,11 @@ public class LeaderboardController {
         liga.put("belohnungCoins",  ligaRang <= 3 ? BELOHNUNGEN[ligaRang - 1] : 0);
 
         Map<String, Object> res = new HashMap<>();
-        res.put("liga",       liga);
-        res.put("global",     global.stream().map(u -> nutzerZuMap(u, userId)).toList());
-        res.put("freunde",    freunde.stream().map(u -> nutzerZuMap(u, userId)).toList());
-        res.put("meinRang",   globalRang);
+        res.put("liga",          liga);
+        res.put("global",        globalMaps);
+        res.put("globalContext", globalContext);
+        res.put("freunde",       freunde.stream().map(u -> nutzerZuMap(u, userId)).toList());
+        res.put("meinRang",      globalRang);
         return ResponseEntity.ok(res);
     }
 
