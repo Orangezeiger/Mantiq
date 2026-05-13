@@ -763,10 +763,15 @@ class _ShareSheetState extends State<_ShareSheet> {
     await file.writeAsString(jsonEncode(data));
     setState(() => _loading = false);
     if (!mounted) return;
+    final size = MediaQuery.of(context).size;
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'application/json')],
       subject: 'Mantiq-Baum: $rawTitle',
       text: 'Mantiq-Baum: $rawTitle',
+      sharePositionOrigin: Rect.fromCenter(
+        center: Offset(size.width / 2, size.height / 2),
+        width: 1, height: 1,
+      ),
     );
   }
 

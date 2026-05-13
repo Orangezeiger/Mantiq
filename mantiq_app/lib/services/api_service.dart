@@ -330,8 +330,10 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>?> exportTree(int treeId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/shares/export/$treeId'));
-    if (res.statusCode == 200) return jsonDecode(res.body);
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/api/shares/export/$treeId'));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+    } catch (_) {}
     return null;
   }
 
