@@ -100,7 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: const TextStyle(
                   color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w700)),
               const SizedBox(width: 12),
-              const Text('🪙', style: TextStyle(fontSize: 16)),
+              const Text('💰', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 3),
               Text('$_coins',
                 style: const TextStyle(
