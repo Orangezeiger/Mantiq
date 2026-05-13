@@ -9,12 +9,13 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    env:
+      HOME: /root
     steps:
       - uses: actions/checkout@v4
 
       - name: Build
         run: |
-          export HOME=/root
           cd mantiq
           chmod +x mvnw
           ./mvnw package -DskipTests -q
