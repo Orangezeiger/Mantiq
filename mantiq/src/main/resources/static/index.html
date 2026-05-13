@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mantiq – Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-box">
+
+    <div class="auth-logo">
+      <h1>mantiq</h1>
+      <p>Lern wie Duolingo – aber für die Uni</p>
+    </div>
+
+    <div class="card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Anmelden</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Registrieren</button>
+      </div>
+
+      <div id="error-box" class="auth-error"></div>
+
+      <!-- Login -->
+      <div id="form-login">
+        <div class="input-group">
+          <label>E-Mail</label>
+          <input class="input" type="email" id="login-email" placeholder="deine@email.de" autocomplete="email">
+        </div>
+        <div class="input-group">
+          <label>Passwort</label>
+          <input class="input" type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary btn-full btn-lg" onclick="login()">Anmelden</button>
+      </div>
+
+      <!-- Register -->
+      <div id="form-register" class="hidden">
+        <div class="input-group">
+          <label>E-Mail</label>
+          <input class="input" type="email" id="reg-email" placeholder="deine@email.de" autocomplete="email">
+        </div>
+        <div class="input-group">
+          <label>Passwort</label>
+          <input class="input" type="password" id="reg-pw" placeholder="Mindestens 6 Zeichen" autocomplete="new-password">
+        </div>
+        <button class="btn btn-primary btn-full btn-lg" onclick="register()">Account erstellen</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  // Schon eingeloggt? Direkt weiter
+  if (Auth.get()) window.location.href = '/dashboard.html';
+
+  function switchTab(tab) {
+    document.getElementById('form-login').classList.toggle('hidden', tab !== 'login');
+    document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    hideError();
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('error-box');
+    box.textContent = msg;
+    box.style.display = 'block';
+  }
+  function hideError() {
+    document.getElementById('error-box').style.display = 'none';
+  }
+
+  async function login() {
+    const email = document.getElementById('login-email').value.trim();
+    const pw    = document.getElementById('login-pw').value;
+    if (!email || !pw) return showError('Bitte alle Felder ausfüllen.');
+
+    const { ok, data } = await API.post('/api/auth/login', { email, password: pw });
+    if (!ok) return showError(data.fehler || 'Anmeldung fehlgeschlagen.');
+
+    Auth.set({ userId: data.userId, email: data.email });
+    window.location.href = '/dashboard.html';
+  }
+
+  async function register() {
+    const email = document.getElementById('reg-email').value.trim();
+    const pw    = document.getElementById('reg-pw').value;
+    if (!email || !pw) return showError('Bitte alle Felder ausfüllen.');
+    if (pw.length < 6)  return showError('Passwort muss mindestens 6 Zeichen lang sein.');
+
+    const { ok, data } = await API.post('/api/auth/register', { email, password: pw });
+    if (!ok) return showError(data.fehler || 'Registrierung fehlgeschlagen.');
+
+    showToast('Registrierung erfolgreich – jetzt anmelden!');
+    switchTab('login');
+    document.getElementById('login-email').value = email;
+  }
+
+  // Enter-Taste
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const loginVisible = !document.getElementById('form-login').classList.contains('hidden');
+    loginVisible ? login() : register();
+  });
+</script>
+</body>
+</html>

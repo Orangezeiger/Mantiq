@@ -1,0 +1,14 @@
+[Unit]
+Description=Mantiq Spring Boot App
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/bin/java -jar /root/mantiq.jar
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

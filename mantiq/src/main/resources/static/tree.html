@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mantiq – Baum</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">mantiq</span>
+  <div class="user-info">
+    <a class="btn btn-ghost" href="/dashboard.html">← Dashboard</a>
+  </div>
+</header>
+
+<main class="tree-view">
+  <div class="tree-header" id="tree-header">
+    <div class="spinner"></div>
+  </div>
+  <div class="path" id="path"></div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+  const user   = Auth.require();
+  const params = new URLSearchParams(location.search);
+  const treeId = params.get('treeId');
+  if (!treeId) window.location.href = '/dashboard.html';
+
+  // Emojis als Icons fuer die Schritte (rotierend)
+  const ICONS = ['📘','🔢','⚗️','🧬','💡','🧩','📐','🔭','🧮','🎯'];
+
+  async function loadTree() {
+    const { ok, data } = await API.get(`/api/trees/${treeId}?userId=${user.userId}`);
+    if (!ok) { document.getElementById('tree-header').textContent = 'Baum nicht gefunden.'; return; }
+
+    document.title = `Mantiq – ${data.title}`;
+    document.getElementById('tree-header').innerHTML = `
+      <h2>${esc(data.title)}</h2>
+      <p>${esc(data.description || '')}</p>
+    `;
+
+    renderPath(data.steps);
+  }
+
+  function renderPath(schritte) {
+    const path = document.getElementById('path');
+    path.innerHTML = '';
+
+    // Ersten nicht-abgeschlossenen Schritt als "aktiv" markieren
+    let ersterAktiv = schritte.findIndex(s => !s.completed);
+
+    schritte.forEach((schritt, i) => {
+      const istAbgeschlossen = schritt.completed;
+      const istAktiv         = i === ersterAktiv;
+      const istGesperrt      = !istAbgeschlossen && !istAktiv;
+
+      // Verbindungslinie (ausser beim ersten)
+      if (i > 0) {
+        const linie = document.createElement('div');
+        linie.className = 'path-connector' + (schritte[i-1].completed ? ' done' : '');
+        path.appendChild(linie);
+      }
+
+      // Schritt-Node
+      const item = document.createElement('div');
+      item.className = 'path-item';
+
+      const statusKlasse = istAbgeschlossen ? 'completed' : istAktiv ? 'active' : 'locked';
+      const icon = istAbgeschlossen ? '✓' : ICONS[i % ICONS.length];
+
+      item.innerHTML = `
+        <div class="step-node ${statusKlasse}">${icon}</div>
+        <div class="step-label ${istAktiv ? 'active' : ''}">${esc(schritt.title)}</div>
+      `;
+
+      if (!istGesperrt) {
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => {
+          window.location.href = `/task.html?stepId=${schritt.id}&treeId=${treeId}`;
+        });
+      }
+
+      path.appendChild(item);
+    });
+
+    if (schritte.length === 0) {
+      path.innerHTML = '<p style="color:var(--text-muted);text-align:center">Noch keine Schritte vorhanden.</p>';
+    }
+
+    // Alles abgeschlossen?
+    if (schritte.length > 0 && schritte.every(s => s.completed)) {
+      path.innerHTML += `
+        <div style="text-align:center;margin-top:32px;color:var(--success)">
+          <div style="font-size:48px">🏆</div>
+          <div style="font-weight:700;margin-top:8px">Alles abgeschlossen!</div>
+        </div>`;
+    }
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadTree();
+</script>
+</body>
+</html>

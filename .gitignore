@@ -1,0 +1,25 @@
+# Java / Maven
+mantiq/target/
+mantiq/.mvn/
+*.class
+*.jar
+*.war
+
+# Flutter
+mantiq_app/.dart_tool/
+mantiq_app/build/
+mantiq_app/.flutter-plugins
+mantiq_app/.flutter-plugins-dependencies
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.env
+application-prod.properties

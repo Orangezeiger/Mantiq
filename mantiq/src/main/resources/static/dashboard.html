@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mantiq – Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- Header -->
+<header class="app-header">
+  <span class="logo">mantiq</span>
+  <div class="user-info">
+    <span class="user-email" id="user-email"></span>
+    <button class="btn btn-ghost" onclick="Auth.logout()">Abmelden</button>
+  </div>
+</header>
+
+<!-- Dashboard -->
+<main class="dashboard">
+  <div class="dashboard-top">
+    <h2>Meine Lernbäume</h2>
+    <button class="btn btn-primary" onclick="openModal()">＋ Neuer Baum</button>
+  </div>
+
+  <div class="tree-grid" id="tree-grid">
+    <div style="text-align:center;padding:40px;color:var(--text-muted)">
+      <div class="spinner"></div>
+    </div>
+  </div>
+</main>
+
+<!-- Modal: Neuer Baum -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h3>Neuer Lernbaum</h3>
+
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="mtab-manuell" onclick="switchModalTab('manuell')">Manuell</button>
+      <button class="modal-tab" id="mtab-pdf" onclick="switchModalTab('pdf')">Aus PDF</button>
+    </div>
+
+    <!-- Manuell -->
+    <div id="mpanel-manuell">
+      <div class="input-group">
+        <label>Titel</label>
+        <input class="input" type="text" id="m-titel" placeholder="z.B. Lineare Algebra">
+      </div>
+      <div class="input-group">
+        <label>Beschreibung (optional)</label>
+        <input class="input" type="text" id="m-desc" placeholder="Kurze Beschreibung">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+        <button class="btn btn-primary" onclick="createManual()">Erstellen</button>
+      </div>
+    </div>
+
+    <!-- PDF Upload -->
+    <div id="mpanel-pdf" class="hidden">
+      <div class="input-group">
+        <label>Titel des Baums</label>
+        <input class="input" type="text" id="pdf-titel" placeholder="Titel (optional – Claude generiert ihn)">
+      </div>
+
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+        <span class="icon">📄</span>
+        <div id="drop-label">PDF hierher ziehen oder klicken</div>
+        <input type="file" id="pdf-input" accept=".pdf" onchange="onFileSelected(event)">
+      </div>
+
+      <div id="pdf-status" style="margin-top:12px;font-size:13px;color:var(--text-muted);display:none"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+        <button class="btn btn-primary" id="pdf-btn" onclick="uploadPdf()" disabled>Generieren</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  const user = Auth.require();
+  document.getElementById('user-email').textContent = user.email;
+
+  let selectedFile = null;
+  let activeModalTab = 'manuell';
+
+  // ── Bäume laden ────────────────────────────────────
+  async function loadTrees() {
+    const { ok, data } = await API.get(`/api/trees?userId=${user.userId}`);
+    const grid = document.getElementById('tree-grid');
+
+    if (!ok || data.length === 0) {
+      grid.innerHTML = `
+        <div class="tree-empty">
+          <p>Noch keine Lernbäume vorhanden.</p>
+          <button class="btn btn-primary" onclick="openModal()">Ersten Baum erstellen</button>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = data.map(t => `
+      <a class="tree-card" href="/tree.html?treeId=${t.id}">
+        <div class="tree-card-title">${esc(t.title)}</div>
+        <div class="tree-card-desc">${esc(t.description || 'Keine Beschreibung')}</div>
+        <div class="tree-card-meta">
+          <span class="tree-card-steps">${t.stepCount} Schritte</span>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  // ── Modal ───────────────────────────────────────────
+  function openModal() {
+    document.getElementById('modal').classList.add('open');
+  }
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+    resetModal();
+  }
+  function closeModalOutside(e) {
+    if (e.target === document.getElementById('modal')) closeModal();
+  }
+  function resetModal() {
+    document.getElementById('m-titel').value = '';
+    document.getElementById('m-desc').value = '';
+    document.getElementById('pdf-titel').value = '';
+    document.getElementById('pdf-input').value = '';
+    document.getElementById('drop-label').textContent = 'PDF hierher ziehen oder klicken';
+    document.getElementById('pdf-status').style.display = 'none';
+    document.getElementById('pdf-btn').disabled = true;
+    selectedFile = null;
+  }
+
+  function switchModalTab(tab) {
+    activeModalTab = tab;
+    document.getElementById('mpanel-manuell').classList.toggle('hidden', tab !== 'manuell');
+    document.getElementById('mpanel-pdf').classList.toggle('hidden', tab !== 'pdf');
+    document.getElementById('mtab-manuell').classList.toggle('active', tab === 'manuell');
+    document.getElementById('mtab-pdf').classList.toggle('active', tab === 'pdf');
+  }
+
+  // ── Manuell erstellen ───────────────────────────────
+  async function createManual() {
+    const titel = document.getElementById('m-titel').value.trim();
+    const desc  = document.getElementById('m-desc').value.trim();
+    if (!titel) return showToast('Bitte einen Titel eingeben.');
+
+    const { ok, data } = await API.post('/api/trees', {
+      userId: user.userId, title: titel, description: desc
+    });
+    if (!ok) return showToast(data.fehler || 'Fehler beim Erstellen.');
+
+    closeModal();
+    await loadTrees();
+    showToast('Baum erstellt ✓');
+  }
+
+  // ── PDF Upload ──────────────────────────────────────
+  function onFileSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    selectedFile = file;
+    document.getElementById('drop-label').textContent = `📎 ${file.name}`;
+    document.getElementById('pdf-btn').disabled = false;
+  }
+
+  // Drag & Drop
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      selectedFile = file;
+      document.getElementById('drop-label').textContent = `📎 ${file.name}`;
+      document.getElementById('pdf-btn').disabled = false;
+    } else {
+      showToast('Bitte eine PDF-Datei hochladen.');
+    }
+  });
+
+  async function uploadPdf() {
+    const titel = document.getElementById('pdf-titel').value.trim();
+    // Titel ist optional – Claude generiert ihn falls leer
+    if (!selectedFile) return showToast('Bitte eine PDF-Datei auswählen.');
+
+    const btn    = document.getElementById('pdf-btn');
+    const status = document.getElementById('pdf-status');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Wird analysiert…';
+    status.textContent = '⏳ Claude analysiert die Folien – das dauert ca. 10–30 Sekunden.';
+    status.style.display = 'block';
+
+    const { ok, data } = await API.uploadPdf(selectedFile, user.userId, titel);
+
+    if (!ok) {
+      status.textContent = '❌ Fehler: ' + (data.fehler || 'Unbekannter Fehler');
+      btn.disabled = false;
+      btn.textContent = 'Nochmal versuchen';
+      return;
+    }
+
+    closeModal();
+    await loadTrees();
+    showToast(`„${data.titel}" erstellt mit ${data.schritte} Schritten ✓`);
+  }
+
+  // HTML escapen
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadTrees();
+</script>
+</body>
+</html>

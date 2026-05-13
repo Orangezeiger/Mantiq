@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://start.spring.io/starter.zip -d type=maven-project -d language=java -d bootVersion=3.4.5 -d baseDir=mantiq -d groupId=com.mantiq -d artifactId=mantiq -d name=mantiq -d packageName=com.mantiq -d packaging=jar -d javaVersion=21 -d dependencies=web,data-jpa,postgresql,devtools,lombok -o '/Users/orangezeiger/Documents/Projekte/App Design/Mantiq/mantiq.zip')",
+      "Bash(unzip -q mantiq.zip)",
+      "Bash(curl -v 'https://start.spring.io/starter.zip?type=maven-project&language=java&bootVersion=3.4.5&baseDir=mantiq&groupId=com.mantiq&artifactId=mantiq&name=mantiq&packageName=com.mantiq&packaging=jar&javaVersion=21&dependencies=web,data-jpa,postgresql,devtools,lombok' -o '/Users/orangezeiger/Documents/Projekte/App Design/Mantiq/mantiq.zip')",
+      "Bash(curl -s 'https://start.spring.io/starter.zip?type=maven-project&language=java&bootVersion=3.5.0&baseDir=mantiq&groupId=com.mantiq&artifactId=mantiq&name=mantiq&packageName=com.mantiq&packaging=jar&javaVersion=21&dependencies=web,data-jpa,postgresql,devtools,lombok' -o '/Users/orangezeiger/Documents/Projekte/App Design/Mantiq/mantiq.zip')",
+      "Bash(./mvnw spring-boot:run)",
+      "Bash(lsof -ti:8080)",
+      "Bash(xargs kill -9)",
+      "Read(//private/tmp/**)",
+      "Bash(flutter --version)",
+      "Bash(flutter create *)",
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter devices *)",
+      "Bash(curl -s \"http://localhost:8080/api/trees?userId=1\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"http://localhost:8080/api/trees/1?userId=1\")",
+      "Bash(./mvnw compile *)",
+      "Bash(echo \"Server startet im Hintergrund \\(PID $!\\)\")",
+      "Bash(flutter run *)",
+      "Bash(echo \"Flutter startet \\(PID $!\\)\")",
+      "Bash(jobs)",
+      "Bash(echo \"Server neu gestartet \\(PID $!\\)\")",
+      "Bash(awk '{print $2}')",
+      "Bash(./mvnw package *)"
+    ]
+  }
+}

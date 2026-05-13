@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mantiq – Aufgabe</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="task-screen" id="task-screen">
+
+  <!-- Topbar mit Fortschrittsbalken -->
+  <div class="task-topbar">
+    <button class="back-btn" onclick="goBack()">✕</button>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="task-count" id="task-count">0 / 0</div>
+  </div>
+
+  <!-- Aufgaben-Bereich -->
+  <div class="task-body" id="task-body">
+    <div style="text-align:center;padding:40px"><div class="spinner"></div></div>
+  </div>
+
+  <!-- Footer mit Weiter-Button -->
+  <div class="task-footer" id="task-footer" style="display:none">
+    <button class="btn btn-primary btn-lg" id="weiter-btn" onclick="weiter()" disabled>Weiter →</button>
+  </div>
+
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+const user    = Auth.require();
+const params  = new URLSearchParams(location.search);
+const stepId  = params.get('stepId');
+const treeId  = params.get('treeId');
+if (!stepId) window.location.href = '/dashboard.html';
+
+let aufgaben = [];
+let index    = 0;
+let richtig  = 0;
+
+// ── Initialisierung ─────────────────────────────────
+async function init() {
+  const { ok, data } = await API.get(`/api/steps/${stepId}/tasks`);
+  if (!ok || data.length === 0) {
+    document.getElementById('task-body').innerHTML =
+      '<p style="color:var(--text-muted)">Keine Aufgaben in diesem Schritt.</p>';
+    return;
+  }
+  aufgaben = data;
+  document.getElementById('task-footer').style.display = 'flex';
+  zeigeAufgabe(0);
+}
+
+function updateProgress() {
+  const pct = aufgaben.length ? (index / aufgaben.length * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('task-count').textContent = `${index} / ${aufgaben.length}`;
+}
+
+// ── Aufgabe anzeigen ────────────────────────────────
+function zeigeAufgabe(i) {
+  if (i >= aufgaben.length) { zeigeAbschluss(); return; }
+  index = i;
+  updateProgress();
+
+  const aufgabe = aufgaben[i];
+  const body    = document.getElementById('task-body');
+  const btn     = document.getElementById('weiter-btn');
+  btn.disabled  = true;
+  btn.textContent = 'Weiter →';
+
+  let html = `<div class="task-question">${esc(aufgabe.question)}</div>`;
+  html += '<div id="feedback" class="feedback"></div>';
+
+  switch (aufgabe.type) {
+    case 'SINGLE_CHOICE':   html += renderSingle(aufgabe);  break;
+    case 'MULTIPLE_CHOICE': html += renderMultiple(aufgabe); break;
+    case 'TRUE_FALSE':      html += renderTrueFalse(aufgabe); break;
+    case 'NUMBER_LINE':     html += renderNumberLine(aufgabe); break;
+    case 'SORTING':         html += renderSorting(aufgabe);  break;
+    case 'MATCHING':        html += renderMatching(aufgabe); break;
+    case 'FILL_BLANK':      html += renderFillBlank(aufgabe); break;
+    default:                html += `<p style="color:var(--text-muted)">Unbekannter Aufgabentyp: ${aufgabe.type}</p>`;
+  }
+
+  body.innerHTML = html;
+  nachRenderSetup(aufgabe);
+}
+
+// ── Aufgabentypen rendern ───────────────────────────
+
+function renderSingle(a) {
+  const buchstaben = ['A','B','C','D'];
+  return `<div class="options-grid">` +
+    a.options.map((o, i) => `
+      <div class="option-card" data-id="${o.id}" data-correct="${o.correct}" onclick="selectSingle(this)">
+        <div class="option-badge">${buchstaben[i]||i+1}</div>
+        <span>${esc(o.text)}</span>
+      </div>`).join('') +
+    `</div>`;
+}
+
+function renderMultiple(a) {
+  return `<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Mehrere Antworten möglich</p>
+    <div class="options-grid">` +
+    a.options.map((o, i) => `
+      <div class="option-card" data-id="${o.id}" data-correct="${o.correct}" onclick="toggleMultiple(this)">
+        <div class="option-badge">${i+1}</div>
+        <span>${esc(o.text)}</span>
+      </div>`).join('') +
+    `</div>
+    <button class="btn btn-primary" onclick="checkMultiple()">Überprüfen</button>`;
+}
+
+function renderTrueFalse(a) {
+  const richtigeOption = a.options.find(o => o.correct);
+  const richtigeAntwort = richtigeOption ? richtigeOption.text : 'Wahr';
+  return `<div class="tf-grid">
+    <button class="tf-btn wahr" onclick="checkTF(this, '${esc(richtigeAntwort)}')">✓ Wahr</button>
+    <button class="tf-btn falsch" onclick="checkTF(this, '${esc(richtigeAntwort)}')">✗ Falsch</button>
+  </div>`;
+}
+
+function renderNumberLine(a) {
+  const min = parseFloat(a.numberMin);
+  const max = parseFloat(a.numberMax);
+  const mid = ((min + max) / 2).toFixed(1);
+  return `<div class="number-line-wrap">
+    <div class="number-line-labels"><span>${min}</span><span>${max}</span></div>
+    <input type="range" class="range-input" id="range-input"
+      min="${min}" max="${max}" step="${(max-min)/100}" value="${mid}"
+      oninput="document.getElementById('range-val').textContent=parseFloat(this.value).toFixed(2)">
+    <div class="range-value" id="range-val">${mid}</div>
+  </div>
+  <button class="btn btn-primary" onclick="checkNumberLine(${a.numberCorrect}, ${min}, ${max})">Überprüfen</button>`;
+}
+
+function renderSorting(a) {
+  // Zufällig mischen
+  const gemischt = [...a.options].sort(() => Math.random() - .5);
+  window._sortOrder    = [];
+  window._sortCorrect  = a.options.sort((x,y) => x.position - y.position).map(o => o.id);
+  return `<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Klicke die Elemente in der richtigen Reihenfolge an.</p>
+    <div class="sort-list" id="sort-list">` +
+    gemischt.map(o => `
+      <div class="sort-item" data-id="${o.id}" onclick="selectSort(this)">
+        <div class="sort-badge">?</div>
+        <span>${esc(o.text)}</span>
+      </div>`).join('') +
+    `</div>
+    <button class="btn btn-primary" id="sort-check-btn" onclick="checkSorting()" disabled>Überprüfen</button>`;
+}
+
+function renderMatching(a) {
+  // Linke Spalte: alle eindeutigen match_groups (erste Option jeder Gruppe)
+  const gruppen = [...new Set(a.options.map(o => o.matchGroup))];
+  const links   = gruppen.map(g => a.options.find(o => o.matchGroup === g));
+  const rechts  = gruppen.map(g => a.options.filter(o => o.matchGroup === g)[1]);
+
+  // Rechts mischen
+  const rechtsGemischt = [...rechts].sort(() => Math.random() - .5);
+
+  window._matchSelected = null;
+  window._matchPaare    = {};
+  gruppen.forEach(g => window._matchPaare[g] = { links: null, rechts: null });
+
+  return `<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Verbinde zusammengehörende Begriffe.</p>
+    <div class="match-grid" id="match-grid">` +
+    links.map((l, i) => `
+      <div class="match-item links" data-id="${l.id}" data-group="${l.matchGroup}" onclick="selectMatch(this,'links')">
+        ${esc(l.text)}
+      </div>
+      <div class="match-item rechts" data-id="${rechtsGemischt[i].id}" data-group="${rechtsGemischt[i].matchGroup}" onclick="selectMatch(this,'rechts')">
+        ${esc(rechtsGemischt[i].text)}
+      </div>`).join('') +
+    `</div>
+    <button class="btn btn-primary" id="match-check-btn" onclick="checkMatching()" disabled>Überprüfen</button>`;
+}
+
+function renderFillBlank(a) {
+  // Korrekte Antwort ermitteln
+  const korrekt = a.options.find(o => o.correct);
+  // Alle Wörter als Chips (korrekte + Distraktoren)
+  const woerter = [...a.options].sort(() => Math.random() - .5);
+  window._fillKorrekt  = korrekt ? korrekt.id : null;
+  window._fillGewaehlt = null;
+
+  return `<div class="fill-question">${esc(a.question).replace('___', '<span class="fill-blank" id="fill-blank">___</span>')}</div>
+    <div class="word-bank" id="word-bank">` +
+    woerter.map(o => `
+      <div class="word-chip" data-id="${o.id}" data-correct="${o.correct}" onclick="selectFill(this)">
+        ${esc(o.text)}
+      </div>`).join('') +
+    `</div>
+    <button class="btn btn-primary" id="fill-check-btn" onclick="checkFill()" disabled>Überprüfen</button>`;
+}
+
+// ── Interaktionslogik ───────────────────────────────
+
+function selectSingle(el) {
+  if (el.classList.contains('disabled')) return;
+  document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('weiter-btn').disabled = false;
+  // Beim Klick direkt prüfen und Feedback zeigen
+  checkSingle();
+}
+
+function checkSingle() {
+  const cards = document.querySelectorAll('.option-card');
+  const gewaehlt = document.querySelector('.option-card.selected');
+  if (!gewaehlt) return;
+
+  const istRichtig = gewaehlt.dataset.correct === 'true';
+  if (istRichtig) richtig++;
+
+  cards.forEach(c => {
+    c.classList.add('disabled');
+    if (c.dataset.correct === 'true') c.classList.add('correct');
+    else if (c === gewaehlt && !istRichtig) c.classList.add('wrong');
+  });
+
+  zeigeFeedback(istRichtig);
+  document.getElementById('weiter-btn').disabled = false;
+}
+
+function toggleMultiple(el) {
+  if (el.classList.contains('disabled')) return;
+  el.classList.toggle('selected');
+}
+
+function checkMultiple() {
+  const cards = document.querySelectorAll('.option-card');
+  const gewaehlt = [...document.querySelectorAll('.option-card.selected')];
+  if (gewaehlt.length === 0) { showToast('Bitte mindestens eine Antwort auswählen.'); return; }
+
+  const alleRichtig = [...cards].filter(c => c.dataset.correct === 'true');
+  const korrektGewaehlt = gewaehlt.filter(c => c.dataset.correct === 'true');
+  const istRichtig = korrektGewaehlt.length === alleRichtig.length && gewaehlt.length === alleRichtig.length;
+
+  if (istRichtig) richtig++;
+  cards.forEach(c => {
+    c.classList.add('disabled');
+    if (c.dataset.correct === 'true') c.classList.add('correct');
+    else if (c.classList.contains('selected')) c.classList.add('wrong');
+  });
+
+  zeigeFeedback(istRichtig);
+  document.querySelector('[onclick="checkMultiple()"]').style.display = 'none';
+  document.getElementById('weiter-btn').disabled = false;
+}
+
+function checkTF(el, richtigeAntwort) {
+  if (el.classList.contains('disabled')) return;
+  document.querySelectorAll('.tf-btn').forEach(b => { b.classList.add('disabled'); });
+  el.classList.add('selected');
+
+  const gewaehlt = el.classList.contains('wahr') ? 'Wahr' : 'Falsch';
+  const istRichtig = gewaehlt === richtigeAntwort || richtigeAntwort === 'Wahr' && el.classList.contains('wahr');
+
+  // Einfacher: richtige Antwort ist die mit is_correct=true
+  const korrektWahr = richtigeAntwort === 'Wahr';
+  const hatWahrGeklickt = el.classList.contains('wahr');
+  const ok = korrektWahr === hatWahrGeklickt;
+
+  if (ok) richtig++;
+  zeigeFeedback(ok);
+  document.getElementById('weiter-btn').disabled = false;
+}
+
+function checkNumberLine(korrekt, min, max) {
+  const val = parseFloat(document.getElementById('range-input').value);
+  const toleranz = (max - min) * 0.05; // 5% Toleranz
+  const istRichtig = Math.abs(val - korrekt) <= toleranz;
+  if (istRichtig) richtig++;
+  zeigeFeedback(istRichtig, `Richtige Antwort: ${korrekt}`);
+  document.querySelector('[onclick^="checkNumberLine"]').style.display = 'none';
+  document.getElementById('range-input').disabled = true;
+  document.getElementById('weiter-btn').disabled = false;
+}
+
+function selectSort(el) {
+  if (el.classList.contains('placed') || el.classList.contains('disabled')) return;
+  window._sortOrder.push(el.dataset.id);
+  el.classList.add('placed');
+  el.querySelector('.sort-badge').textContent = window._sortOrder.length;
+
+  if (window._sortOrder.length === document.querySelectorAll('.sort-item').length) {
+    document.getElementById('sort-check-btn').disabled = false;
+  }
+}
+
+function checkSorting() {
+  const istRichtig = JSON.stringify(window._sortOrder) === JSON.stringify(window._sortCorrect.map(String));
+  if (istRichtig) richtig++;
+
+  document.querySelectorAll('.sort-item').forEach((el, i) => {
+    el.classList.add('disabled');
+    const gehoertHier = window._sortCorrect[i] === el.dataset.id;
+    // Zeige richtige Reihenfolge
+    el.classList.add(window._sortOrder.indexOf(el.dataset.id) === window._sortCorrect.indexOf(el.dataset.id) ? 'correct' : 'wrong');
+  });
+
+  zeigeFeedback(istRichtig);
+  document.getElementById('sort-check-btn').style.display = 'none';
+  document.getElementById('weiter-btn').disabled = false;
+}
+
+let _matchFirstSelected = null;
+
+function selectMatch(el, seite) {
+  if (el.classList.contains('matched') || el.classList.contains('disabled')) return;
+
+  if (!_matchFirstSelected) {
+    // Erstes Element auswaehlen
+    document.querySelectorAll('.match-item.selected').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    _matchFirstSelected = el;
+  } else {
+    // Zweites Element: prüfen ob passendes Paar
+    const ersteSeite  = _matchFirstSelected.classList.contains('links') ? 'links' : 'rechts';
+    const zweiteSeite = seite;
+
+    if (ersteSeite === zweiteSeite) {
+      // Gleiche Spalte: umwählen
+      document.querySelectorAll('.match-item.selected').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+      _matchFirstSelected = el;
+      return;
+    }
+
+    const gruppe1 = _matchFirstSelected.dataset.group;
+    const gruppe2 = el.dataset.group;
+
+    if (gruppe1 === gruppe2) {
+      _matchFirstSelected.classList.add('matched');
+      el.classList.add('matched');
+    } else {
+      _matchFirstSelected.classList.add('wrong');
+      el.classList.add('wrong');
+      setTimeout(() => {
+        _matchFirstSelected.classList.remove('wrong');
+        el.classList.remove('wrong');
+      }, 800);
+    }
+
+    _matchFirstSelected.classList.remove('selected');
+    el.classList.remove('selected');
+    _matchFirstSelected = null;
+
+    // Alle verbunden?
+    const total   = document.querySelectorAll('.match-item').length;
+    const matched = document.querySelectorAll('.match-item.matched').length;
+    if (matched === total) {
+      document.getElementById('match-check-btn').disabled = false;
+    }
+  }
+}
+
+function checkMatching() {
+  const alleRichtig = document.querySelectorAll('.match-item.matched').length ===
+                      document.querySelectorAll('.match-item').length;
+  if (alleRichtig) richtig++;
+  zeigeFeedback(alleRichtig);
+  document.getElementById('match-check-btn').style.display = 'none';
+  document.getElementById('weiter-btn').disabled = false;
+}
+
+function selectFill(el) {
+  if (el.classList.contains('used') || el.classList.contains('disabled')) return;
+  document.querySelectorAll('.word-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  window._fillGewaehlt = el.dataset.id;
+  document.getElementById('fill-blank').textContent = el.textContent.trim();
+  document.getElementById('fill-check-btn').disabled = false;
+}
+
+function checkFill() {
+  const istRichtig = window._fillGewaehlt === String(window._fillKorrekt);
+  if (istRichtig) richtig++;
+
+  document.querySelectorAll('.word-chip').forEach(c => {
+    c.classList.add('disabled');
+    if (c.dataset.correct === 'true') c.classList.add('correct');
+    else if (c.dataset.id === window._fillGewaehlt) c.classList.add('wrong');
+  });
+
+  zeigeFeedback(istRichtig);
+  document.getElementById('fill-check-btn').style.display = 'none';
+  document.getElementById('weiter-btn').disabled = false;
+}
+
+// ── Feedback ────────────────────────────────────────
+function zeigeFeedback(istRichtig, extraText = '') {
+  const fb = document.getElementById('feedback');
+  if (istRichtig) {
+    fb.className = 'feedback correct';
+    fb.innerHTML = '✓ Richtig! ' + extraText;
+  } else {
+    fb.className = 'feedback wrong';
+    fb.innerHTML = '✗ Falsch. ' + extraText;
+  }
+}
+
+// ── Weiter ──────────────────────────────────────────
+function weiter() {
+  zeigeAufgabe(index + 1);
+}
+
+// ── Abschluss ────────────────────────────────────────
+async function zeigeAbschluss() {
+  updateProgress();
+  document.getElementById('task-footer').style.display = 'none';
+
+  // Schritt als abgeschlossen markieren
+  await API.post(`/api/steps/${stepId}/complete`, { userId: user.userId });
+
+  const prozent = Math.round(richtig / aufgaben.length * 100);
+  document.getElementById('task-body').innerHTML = `
+    <div class="completion">
+      <div class="completion-icon">${prozent >= 70 ? '🎉' : '📚'}</div>
+      <h2>${prozent >= 70 ? 'Super gemacht!' : 'Weiter üben!'}</h2>
+      <p>${prozent >= 70 ? 'Du hast diesen Schritt abgeschlossen.' : 'Nicht aufgeben – du schaffst das!'}</p>
+      <div class="completion-stats">
+        <div class="stat">
+          <div class="stat-value">${richtig}</div>
+          <div class="stat-label">Richtig</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">${aufgaben.length - richtig}</div>
+          <div class="stat-label">Falsch</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">${prozent}%</div>
+          <div class="stat-label">Punkte</div>
+        </div>
+      </div>
+      <a class="btn btn-primary btn-lg" href="/tree.html?treeId=${treeId}">← Zurück zum Baum</a>
+    </div>`;
+}
+
+// ── Helpers ─────────────────────────────────────────
+function nachRenderSetup(a) {
+  // TRUE_FALSE: korrekte Antwort aus options ermitteln
+  // (wird inline im renderTrueFalse gelöst)
+}
+
+function goBack() {
+  const back = treeId ? `/tree.html?treeId=${treeId}` : '/dashboard.html';
+  window.location.href = back;
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+init();
+</script>
+</body>
+</html>
