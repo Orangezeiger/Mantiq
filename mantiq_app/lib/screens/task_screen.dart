@@ -131,11 +131,13 @@ class _TaskScreenState extends State<TaskScreen> {
         Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Frage
-            Text(task['question'],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.text, height: 1.4),
-            ).animate().fadeIn(),
-            const SizedBox(height: 28),
+            // Frage (bei FILL_BLANK entfällt sie – die Frage steckt schon im Lückentext)
+            if (task['type'] != 'FILL_BLANK') ...[
+              Text(task['question'],
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.text, height: 1.4),
+              ).animate().fadeIn(),
+              const SizedBox(height: 28),
+            ],
 
             // Aufgabentyp
             _buildTaskType(task),
