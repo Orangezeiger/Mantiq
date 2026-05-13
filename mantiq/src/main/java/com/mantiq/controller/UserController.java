@@ -7,6 +7,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +43,20 @@ public class UserController {
         if (u == null) return ResponseEntity.notFound().build();
 
         String name = body.get("displayName");
-        if (name != null) u.setDisplayName(name.isBlank() ? null : name.trim());
+        if (name != null) {
+            if (u.getDisplayNameChangedAt() != null) {
+                long daysSince = ChronoUnit.DAYS.between(u.getDisplayNameChangedAt(), LocalDateTime.now());
+                if (daysSince < 30) {
+                    long daysLeft = 30 - daysSince;
+                    Map<String, Object> err = new HashMap<>();
+                    err.put("fehler", "Anzeigename kann erst in " + daysLeft + " Tagen geändert werden.");
+                    err.put("daysLeft", daysLeft);
+                    return ResponseEntity.status(429).body(err);
+                }
+            }
+            u.setDisplayName(name.isBlank() ? null : name.trim());
+            u.setDisplayNameChangedAt(LocalDateTime.now());
+        }
         userRepository.save(u);
         return ResponseEntity.ok(nutzerZuMap(u));
     }
@@ -76,14 +91,20 @@ public class UserController {
     }
 
     private Map<String, Object> nutzerZuMap(User u) {
-        return Map.of(
-            "id",               u.getId(),
-            "email",            u.getEmail(),
-            "displayName",      u.getDisplayName() != null ? u.getDisplayName() : "",
-            "xp",               u.getXp(),
-            "coins",            u.getCoins(),
-            "streakDays",       u.getStreakDays(),
-            "subscriptionPlan", u.getSubscriptionPlan()
-        );
+        long daysUntilNameChange = 0;
+        if (u.getDisplayNameChangedAt() != null) {
+            long daysSince = ChronoUnit.DAYS.between(u.getDisplayNameChangedAt(), LocalDateTime.now());
+            daysUntilNameChange = Math.max(0, 30 - daysSince);
+        }
+        Map<String, Object> m = new HashMap<>();
+        m.put("id",                  u.getId());
+        m.put("email",               u.getEmail());
+        m.put("displayName",         u.getDisplayName() != null ? u.getDisplayName() : "");
+        m.put("xp",                  u.getXp());
+        m.put("coins",               u.getCoins());
+        m.put("streakDays",          u.getStreakDays());
+        m.put("subscriptionPlan",    u.getSubscriptionPlan());
+        m.put("daysUntilNameChange", daysUntilNameChange);
+        return m;
     }
 }

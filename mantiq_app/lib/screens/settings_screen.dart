@@ -40,6 +40,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _editName() {
+    final daysLeft = (_profile?['daysUntilNameChange'] as num?)?.toInt() ?? 0;
+    if (daysLeft > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Anzeigename kann erst in $daysLeft Tagen wieder geändert werden.'),
+        backgroundColor: AppColors.surface2,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
     final ctrl = TextEditingController(text: _profile?['displayName'] ?? '');
     showDialog(
       context: context,
@@ -58,7 +68,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await ApiService.updateDisplayName(widget.userId, ctrl.text.trim());
+              final res = await ApiService.updateDisplayName(widget.userId, ctrl.text.trim());
+              if (!mounted) return;
+              if (res['ok'] == false) {
+                final daysLeft = res['data']?['daysLeft'] as int? ?? 30;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Erst in $daysLeft Tagen wieder änderbar.'),
+                  backgroundColor: AppColors.surface2,
+                  behavior: SnackBarBehavior.floating,
+                ));
+              }
               _load();
             },
             child: const Text('Speichern', style: TextStyle(color: AppColors.primary)),

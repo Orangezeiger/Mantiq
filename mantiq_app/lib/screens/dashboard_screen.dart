@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
@@ -20,11 +21,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _loading          = true;
   int  _coins            = 0;
   int  _streakDays       = 0;
+  Timer? _statsTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _statsTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshStats());
+  }
+
+  @override
+  void dispose() {
+    _statsTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshStats() async {
+    final user = await ApiService.getUser(widget.userId);
+    if (!mounted) return;
+    setState(() {
+      _coins      = user?['coins']      as int? ?? _coins;
+      _streakDays = user?['streakDays'] as int? ?? _streakDays;
+    });
   }
 
   Future<void> _load() async {

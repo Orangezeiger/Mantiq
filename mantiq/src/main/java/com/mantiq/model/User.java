@@ -50,6 +50,9 @@ public class User {
     @Column(name = "subscription_until")
     private LocalDateTime subscriptionUntil;
 
+    @Column(name = "display_name_changed_at")
+    private LocalDateTime displayNameChangedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -96,6 +99,9 @@ public class User {
 
     public LocalDateTime getSubscriptionUntil() { return subscriptionUntil; }
     public void setSubscriptionUntil(LocalDateTime subscriptionUntil) { this.subscriptionUntil = subscriptionUntil; }
+
+    public LocalDateTime getDisplayNameChangedAt() { return displayNameChangedAt; }
+    public void setDisplayNameChangedAt(LocalDateTime v) { this.displayNameChangedAt = v; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
