@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'mantiq/**'
+      - '.github/workflows/**'
 
 jobs:
   deploy:
