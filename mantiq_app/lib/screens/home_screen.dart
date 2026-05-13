@@ -17,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int    _tab         = 0;
+  int    _prevTab     = 0;
   int?   _userId;
   String _email       = '';
   String _displayName = '';
@@ -59,10 +60,27 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _tab, children: tabs),
+      body: Stack(
+        children: List.generate(tabs.length, (i) {
+          final isActive = i == _tab;
+          return IgnorePointer(
+            ignoring: !isActive,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: isActive ? 1.0 : 0.0,
+              child: AnimatedScale(
+                scale: isActive ? 1.0 : 0.97,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: SizedBox.expand(child: tabs[i]),
+              ),
+            ),
+          );
+        }),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _tab,
-        onTap: (i) => setState(() => _tab = i),
+        onTap: (i) => setState(() { _prevTab = _tab; _tab = i; }),
         backgroundColor: AppColors.surface,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textMuted,

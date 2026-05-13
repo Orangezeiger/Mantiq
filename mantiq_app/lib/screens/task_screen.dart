@@ -128,24 +128,31 @@ class _TaskScreenState extends State<TaskScreen> {
         ),
 
         // Aufgabe
-        Expanded(child: SingleChildScrollView(
+        Expanded(child: LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Frage (bei FILL_BLANK entfällt sie – die Frage steckt schon im Lückentext)
-            if (task['type'] != 'FILL_BLANK') ...[
-              Text(task['question'],
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.text, height: 1.4),
-              ).animate().fadeIn(),
-              const SizedBox(height: 28),
-            ],
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Frage (bei FILL_BLANK entfällt sie – die Frage steckt schon im Lückentext)
+                if (task['type'] != 'FILL_BLANK') ...[
+                  Text(task['question'],
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.text, height: 1.4),
+                  ).animate().fadeIn(),
+                  const SizedBox(height: 28),
+                ],
 
-            // Aufgabentyp
-            _buildTaskType(task),
+                // Aufgabentyp
+                _buildTaskType(task),
 
-            // Feedback
-            if (_answered) _buildFeedback(),
-          ]),
-        )),
+                // Feedback
+                if (_answered) _buildFeedback(),
+              ],
+            ),
+          ),
+        ))),
 
         // Footer
         _buildFooter(task),
@@ -343,7 +350,12 @@ class _TaskScreenState extends State<TaskScreen> {
             bgColor     = ok ? const Color(0x2034D399) : const Color(0x20F87171);
           }
           return GestureDetector(
-            onTap: (_answered || placed) ? null : () => setState(() => _sortOrder.add(id)),
+            onTap: _answered ? null : () {
+              setState(() {
+                if (placed) _sortOrder.remove(id);
+                else _sortOrder.add(id);
+              });
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(bottom: 8),
@@ -353,6 +365,8 @@ class _TaskScreenState extends State<TaskScreen> {
                 _badge(placed ? '${pos+1}' : '?', placed),
                 const SizedBox(width: 12),
                 Expanded(child: Text(opt['text'], style: const TextStyle(fontSize: 15, color: AppColors.text))),
+                if (placed && !_answered)
+                  const Icon(Icons.undo_rounded, size: 16, color: AppColors.textMuted),
               ]),
             ),
           );
@@ -403,16 +417,38 @@ class _TaskScreenState extends State<TaskScreen> {
     Color bgColor     = matched ? const Color(0x2034D399) : (selected ? const Color(0x207C6AF5) : AppColors.surface);
 
     return GestureDetector(
-      onTap: (matched || _answered) ? null : () => _onMatchTap(id, side),
+      onTap: _answered ? null : () {
+        if (matched) _onUnmatch(id, side);
+        else _onMatchTap(id, side);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10), border: Border.all(color: borderColor, width: 2)),
-        child: Center(child: Text(text, textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13, color: AppColors.text))),
+        child: Stack(alignment: Alignment.center, children: [
+          Text(text, textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: AppColors.text)),
+          if (matched && !_answered)
+            Positioned(top: 0, right: 0,
+              child: Icon(Icons.undo_rounded, size: 12, color: AppColors.success.withOpacity(0.7))),
+        ]),
       ),
     );
+  }
+
+  void _onUnmatch(int id, String side) {
+    setState(() {
+      if (side == 'links') {
+        _matchedPairs.remove(id);
+      } else {
+        final key = _matchedPairs.entries
+            .where((e) => e.value == id)
+            .map((e) => e.key)
+            .firstOrNull;
+        if (key != null) _matchedPairs.remove(key);
+      }
+    });
   }
 
   void _onMatchTap(int id, String side) {
