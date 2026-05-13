@@ -15,7 +15,7 @@ dependencies:
   file_picker: ^8.0.0            # PDF auswaehlen
   flutter_animate: ^4.5.0        # Animationen (Duolingo-Stil)
   package_info_plus: ^8.0.0     # App-Version aus pubspec lesen
-  share_plus: ^10.0.0           # Nativer Share-Sheet (Datei/Text teilen)
+  share_plus: ^9.0.0            # Nativer Share-Sheet (Datei/Text teilen)
   path_provider: ^2.1.0         # Temp-Verzeichnis fuer .mantiq-Datei
 
 dev_dependencies:

@@ -753,8 +753,9 @@ class _ShareSheetState extends State<_ShareSheet> {
     await file.writeAsString(jsonEncode(data));
     setState(() => _loading = false);
     if (!mounted) return;
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: 'Mantiq-Baum: ${widget.tree['title']}'),
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: 'Mantiq-Baum: ${widget.tree['title']}',
     );
   }
 
