@@ -14,6 +14,7 @@ dependencies:
   shared_preferences: ^2.3.0     # userId lokal speichern
   file_picker: ^8.0.0            # PDF auswaehlen
   flutter_animate: ^4.5.0        # Animationen (Duolingo-Stil)
+  package_info_plus: ^8.0.0     # App-Version aus pubspec lesen
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -17,11 +18,26 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _profile;
   bool _loading = true;
+  String _appVersion    = '';
+  String _serverVersion = '';
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadVersions();
+  }
+
+  Future<void> _loadVersions() async {
+    final info   = await PackageInfo.fromPlatform();
+    final server = await ApiService.getServerVersion();
+    if (!mounted) return;
+    setState(() {
+      _appVersion    = '${info.version}+${info.buildNumber}';
+      _serverVersion = server != null
+          ? '${server['version']} · deployed ${server['buildTime']}'
+          : 'nicht erreichbar';
+    });
   }
 
   Future<void> _load() async {
@@ -218,6 +234,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: 'Abmelden',
                     textColor: AppColors.error,
                     onTap: _logout),
+                  const SizedBox(height: 32),
+
+                  // Version (klein, versteckt am Ende)
+                  Center(
+                    child: Column(children: [
+                      Text('App ${'$_appVersion'}',
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 11)),
+                      const SizedBox(height: 2),
+                      Text('Server $_serverVersion',
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 11)),
+                    ]),
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),

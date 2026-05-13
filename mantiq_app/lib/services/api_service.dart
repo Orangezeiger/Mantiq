@@ -293,6 +293,17 @@ class ApiService {
     return {'ok': res.statusCode == 200, 'data': jsonDecode(res.body)};
   }
 
+  // ── Version ───────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getServerVersion() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/api/version'))
+          .timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+    } catch (_) {}
+    return null;
+  }
+
   // ── Abo ───────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getSubscription(int userId) async {
