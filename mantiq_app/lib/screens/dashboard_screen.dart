@@ -91,20 +91,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24,
               color: AppColors.primary, letterSpacing: -1)),
         actions: [
-          Row(children: [
-            Text('🔥', style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 3),
-            Text('$_streakDays',
-              style: const TextStyle(
-                color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 14),
-            Text('🪙', style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 3),
-            Text('$_coins',
-              style: const TextStyle(
-                color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 16),
-          ]),
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('🔥', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 3),
+              Text('$_streakDays',
+                style: const TextStyle(
+                  color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w700)),
+              const SizedBox(width: 12),
+              const Text('🪙', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 3),
+              Text('$_coins',
+                style: const TextStyle(
+                  color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w700)),
+            ]),
+          ),
         ],
       ),
       body: RefreshIndicator(
