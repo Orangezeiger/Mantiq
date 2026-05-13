@@ -15,11 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Maven
+        run: which mvn || apt-get install -y maven -q
+
       - name: Build
-        run: |
-          cd mantiq
-          chmod +x mvnw
-          ./mvnw package -DskipTests -q
+        run: cd mantiq && mvn package -DskipTests -q
 
       - name: Restart
         run: |
